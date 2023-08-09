@@ -29,7 +29,8 @@ https://gist.github.com/mbinna/c61dbb39bca0e4fb7d1f73b0d66a4fd1
 - why ? the zephyr documentation is great and with lots of examples available, also easy to follow.
 - but .. it is easy to get lost in the dephts of the documentation. This guide walks you through the steps and pulls you back for when you might want to stop exploring.
 
-Goal: Learn the tools step by step, especially things like `west` which are a bit much
+TODO: Goal: Learn the tools step by step, especially things like `west` which are a bit much
+TODO: goal of this example
 
 
 ## Setup using the nRF Connect SDK
@@ -50,7 +51,7 @@ The nRF Connect SDK also comes with a [VS Code extension pack][nrf-connect-vscod
 
 After installing the toolchain manager you can install different versions of the nRF Connect SDK. E.g., my current list of installations looks as follows:
 
-![toolchain](../assets/nrf-toolchain-mgr.png)
+![Toolchain Manager Screenshot](../assets/nrf-toolchain-mgr.png?raw=true)
 
 However, when trying to use any of Zephyr's tools in your normal command line, you should notice that the commands cannot be located yet. E.g., this is the output of my `zsh` terminal when trying to execute [Zephyr's Meta Tool West][zephyr-west] (we'll go a bit further into detail about that tool later):
 
@@ -188,7 +189,7 @@ Since there exist some oddities when using `west` for building your application 
 
 In our application skeleton there is also a very suspicious [prj.conf](prj.conf) file. This file must exist for any application, even if empty, and is used by the [Kconfig configuration system][zephyr-kconfig]. We'll go into detail about [Kconfig][zephyr-kconfig] (and *DeviceTree*) later in this guide.
 
-For now simply keep in mind that we'll be using this configuration file to tell the build system which modules and which features we want to use in our application. Anything that we don't plan on using will be deactivated, decreasing the size of our application.
+For now simply keep in mind that we'll be using this configuration file to tell the build system which modules and which features we want to use in our application. Anything that we don't plan on using will be deactivated, decreasing the size of our application and reducing compilation times.
 
 #### Sources
 
@@ -217,16 +218,21 @@ Notice that this is a plain infinite loop and it doesn't make any use of threads
 
 ### `CMakeLists.txt`
 
+TODO: set(BOARD ...) not to be used
+
 Now we come to the heart of this first step towards Zephyr: The build configuration. In case you're not familiar at all with *CMake*, there exist several articles and even books about ["Effective Modern CMake"][cmake-gist]: *CMake* has evolved significantly, and only certain patterns should be used for new applications.
 
 Let's go through the steps to create our [CMakeLists.txt](CMakeLists.txt) for this empty application:
 
 ```cmake
-cmake_minimum_required(VERSION 3.15~...3.20)
+cmake_minimum_required(VERSION 3.20.0)
 
 set(BOARD nrf52840dk_nrf52840)
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 ```
+
+TODO: real required minimal version
+`zephyr/cmake/modules/zephyr_default.cmake`
 
 - `cmake_minimum_required` just indicates the allowed CMake versions.
 - The `set` function writes the board that we're building our application for to the variable `BOARD`. This step is optional and can actually be specified during the build step as parameter.
@@ -236,7 +242,7 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 
 As mentioned, setting the `BOARD` variable is optional and usually only done if you want to build for only one board. The value for the `BOARD` can be chosen in different ways, e.g., using an environment variable. The Zephyr build system determines the final value for `BOARD` in a pre-defined order; refer to the [documentation for the application CMakeLists.txt][zephyr-cmakelists-app] for details.
 
-> **Note**: Personally, while experimenting I typically specify the `BOARD` in the `CMakeLists.txt` file since I don't really remember the exact board names. You can always dump the list of supported boards using the command `west boards`.
+> **Note**: TODO: update. Personally, while experimenting I typically specify the `BOARD` in the `CMakeLists.txt` file since I don't really remember the exact board names. You can always dump the list of supported boards using the command `west boards`.
 
 Now that Zephyr is available, we can go ahead and add the application:
 
@@ -303,7 +309,7 @@ Note: to silence the above message, run 'west config build.board_warn false'
 
 > **Note:** The default build directory of West is a `build` folder within the same directory. If run without `-d ../build`, West will create a `build` folder in the current directory for the build.
 
-The build succeeds, but there's a warning indicating that no board has been specified. How is that possible? West itself typically still expects a "board configuration" (keep reading for an explanation) or the `--board` parameter. The reason for this is simple: West is much more than just a wrapper for CMake. For other commands, West may not even look at the `CMakeLists.txt` file and therefore knows nothing about the board.
+The build succeeds, but there's a warning indicating that no board has been specified. How is that possible? West itself typically still expects a "board configuration" or the `--board` parameter. The reason for this is simple: West is much more than just a wrapper for CMake and therefore doesn't parse the provided `CMakeLists.txt` file. It just warns you that you may have forgotten to specify the `board` but still proceeds to call CMake.
 
 Before looking yet another step deeper into West, comment or delete the `set(BOARD ...)` instruction in your `CMakeLists.txt` file.
 
@@ -359,6 +365,8 @@ $ west build -d ../build --pristine
 
 ## A quick glance at IDE Integrations
 
+TODO: here
+
 as mentioned, IDEs are intentionally ignored since this is up to you
 but here are a few hints
 also notice that before we used -d ../build, because vscodes cmake extension picks up build folder in the root directory
@@ -383,6 +391,8 @@ Which west commands did we see
 
 Next up: KConfig and DeviceTree.
 
+
+TODO: using a different devkit? `west boards` or is there a list in the docs?
 
 
 

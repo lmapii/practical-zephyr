@@ -1,2 +1,7 @@
+.DS_Store
+.idea
+thumbs.db
+*.pyc
 
 **/build
+# build/cmake_install.cmake
