@@ -391,6 +391,10 @@ Which west commands did we see
 
 Next up: KConfig and DeviceTree.
 
+TODO: at the beginning we'll use west only for building, debugging and flashing
+https://docs.zephyrproject.org/latest/develop/west/build-flash-debug.html
+
+workspaces will come up later (this is actually what can be a bit confusing in the docs, since wests actual purpose is something that you'll only make use of much later in your projects).
 
 TODO: using a different devkit? `west boards` or is there a list in the docs?
 

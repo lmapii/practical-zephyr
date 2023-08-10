@@ -9,19 +9,19 @@ Logging as demo for Kconfig
   - [Loading `menuconfig` and `guiconfig`](#loading-menuconfig-and-guiconfig)
   - [Persisting `menuconfig` and `guiconfig` changes](#persisting-menuconfig-and-guiconfig-changes)
   - [Kconfig search](#kconfig-search)
-  - [Nordic Kconfig extension for `vscode`](#nordic-kconfig-extension-for-vscode)
+  - [Nordic's Kconfig extension for `vscode`](#nordics-kconfig-extension-for-vscode)
 - [Using different configuration files](#using-different-configuration-files)
-  - [Board Kconfig fragments](#board-kconfig-fragments)
-  - [Build types](#build-types)
+  - [Build types and alternative Kconfig files](#build-types-and-alternative-kconfig-files)
+  - [Board-specific Kconfig fragments](#board-specific-kconfig-fragments)
   - [Extra configuration files](#extra-configuration-files)
 - [Kconfig hardening](#kconfig-hardening)
-- [Overlays and build configurations](#overlays-and-build-configurations)
 - [A custom Kconfig symbol](#a-custom-kconfig-symbol)
 - [Logging](#logging)
+- [Further reading](#further-reading)
 
 ## Goal
 
-In this section, we'll explore the [Kconfig configuration system][zephyr-kconfig] by looking at the `printk` logging option in Zephyr. [_Logging_][zephyr-logging] in Zephyr is everything from simple []`print`-style text logs][zephyr-printk] to customized messaging. Notice, though, that we'll _not_ explore the logging service in detail, but only use it as an excuse to dig into [Kconfig][zephyr-kconfig]. Finally, we'll create our own little application specific `Kconfig` configuration.
+In this section, we'll explore the [Kconfig configuration system][zephyr-kconfig] by looking at the `printk` logging option in Zephyr. [_Logging_][zephyr-logging] in Zephyr is everything from simple [`print`-style text logs][zephyr-printk] to customized messaging. Notice, though, that we'll _not_ explore the logging service in detail, but only use it as an excuse to dig into [Kconfig][zephyr-kconfig]. Finally, we'll create our own little application specific `Kconfig` configuration.
 
 ## Getting started using `printk`
 
@@ -166,6 +166,8 @@ Huh. Even though we've disabled `PRINTK` using `CONFIG_PRINTK=n` in our `prj.con
 ## Navigating Kconfig
 
 As mentioned before, `Kconfig` uses an entire _hierarchy_ of `Kconfig` files. The initial configuration is merged from several `Kconfig` files, including the `Kconfig` file of the specified board. The exact procedure used by Zephyr for merging the configuration file is explained in great detail in a [dedicated section of the official documentation][zephyr-kconfig-merge].
+
+> **Notice:** The command line output of `west build` also shows the order in which `Kconfig` merges the configuration files. We'll see this in the section about [build types and alternative Kconfig files](#build-types-and-alternative-kconfig-files).
 
 When debugging `Kconfig` settings, it can sometimes be helpful to have a look at this generated output. All `Kconfig` configuration parameters are merged into a single `zephyr/.config` file located in the build directory, in our case `build/zephyr/.config`. There, we find the following setting:
 
@@ -328,14 +330,13 @@ Now, after rebuilding, the output on our serial interface indeed remains empty. 
 In case you don't like `menuconfig` or `guiconfig`, or just want to browse available configuration options, the Zephyr documentation also includes a dedicated [Kconfig search][zephyr-kconfig-search]. E.g., when [searching for our `PRINTK` configuration](https://docs.zephyrproject.org/latest/kconfig.html#CONFIG_PRINTK) we'll be presented with the following output:
 
 ![Screenshot Kconfig Search](../assets/kconfig-search.png?raw=true "Kconfig search")
- the search produces the same information as available in `menuconfig`, but _without_ knowing our current conf
 
 While this search does point out that there is a dependency to the `BOOT_BANNER` symbol, it cannot know our current configuration and therefore can't tell us that we can't only disable `PRINTK` since `BOOT_BANNER` is also enabled in our configuration.
 
 
-### Nordic Kconfig extension for `vscode`
+### Nordic's Kconfig extension for `vscode`
 
-Another graphical user interface for `Kconfig` is the [nRF Kconfig][nrf-vscode-kconfig] extension for `vscode`. To some extent this extension can also be used without all other extensions of the [nRF Connect SDK][nrf-connect-sdk] and can therefore also be useful if you're not developing for a target from [Nordic][nordicsemi]:
+Another graphical user interface for `Kconfig` is the [nRF Kconfig][nrf-vscode-kconfig] extension for `vscode`. This is an extension tailored for use with the [nRF Connect SDK][nrf-connect-sdk], but to some extent this extension can also be used for a generic Zephyr project and can therefore also be useful if you're not developing for a target from [Nordic][nordicsemi]:
 
 ![Screenshot nRF Kconfig](../assets/kconfig-nrf-vscode.png?raw=true "nRF Kconfig")
 
@@ -350,9 +351,7 @@ At the time of writing and for this repository the following configuration optio
 }
 ```
 
-However, as visible in the above screenshot, at the time of writing the extension fails to inform the user about the dependency to the `BOOT_BANNER` and in contrast to `menuconfig` and `guiconfig` it is therefore not visible why the configuration option cannot be disabled.
-
-Aside from that, this extension has two major benefits:
+However, as visible in the above screenshot, at the time of writing the extension fails to inform the user about the dependency to the `BOOT_BANNER` and in contrast to `menuconfig` and `guiconfig` it is therefore not visible why the configuration option cannot be disabled. Aside from that, this extension has two major benefits:
 
 * The _Save minimal config_ option seems to recognize options coming from a `_defconfig` file and therefore really only exports the configuration options set within the extension.
 * The extension adds auto-completion to your `.conf` files.
@@ -363,40 +362,267 @@ With this last tool to explore `Kconfig`, let's have a look at a couple of more 
 
 ## Using different configuration files
 
-TODO: here. until now: only prj.conf, but there's more and there's some common practices.
+Until now we've only used the _application configuration file_ [prj.conf](../00_empty/prj.conf) for setting `Kconfig` symbols. In addition to this configuration file, the Zephyr build system automatically picks up additional `Kconfig` _fragments_, if provided, and also allows explicitly specifying additional or alternative fragments.
 
-### Board Kconfig fragments
+We'll quickly glance through the most common practices here.
 
-prj_<board>.conf -> deprecated, use /board folder
-TODO: disable GPIO in this overlay and see that it is indeed disabled
+### Build types and alternative Kconfig files
 
-### Build types
+Zephyr doesn't use pre-defined build types such as _Debug_ or _Release_ builds. It is up to the application to decide the optimization options and build types. Different build types in Zephyr are supported by [alternative Kconfig files][zephyr-dconf], specified using the [`CONF_FILE`][zephyr-kconfig-extra] build system variable.
 
-`release` or `debug` are not supported build types in Zephyr.
+Let's freshen up on the _build system variables_: These variables are _not_ direct parameters for the build and configuration systems used by Zephyr, e.g., like the `--build-dir` option for `west build`, but are available globally. As described in the [official documentation on important build system variables][zephyr-kconfig-extra], there are multiple ways to pass such variables to the build system. We'll repeat two of the available options here:
 
-[docs][zephyr-dconf]
+1. A build system variable may exist as environment variable.
+2. A build system variable may be passed to `west build` as [one-time CMake arguments][zephyr-west-dashdash] after a double dash `--`.
 
-Default: prj.conf
+We'll stick to the second option and use a [one-time CMake argument][zephyr-west-dashdash], as shown in the [application development basics in the official documentation][zephyr-dconf]. First, let's go ahead and create a [`prj_release.conf`](./prj_release.conf), which defines our symbols for the `release` build type:
+
+```
+$ tree --charset=utf-8 --dirsfirst
+.
+├── src
+│   └── main.c
+├── CMakeLists.txt
+├── prj.conf
+└── prj_release.conf
+
+$ cat prj_release.conf
+```
+```conf
+CONFIG_LOG=n
+CONFIG_PRINTK=n
+CONFIG_BOOT_BANNER=n
+CONFIG_EARLY_CONSOLE=n
+CONFIG_OVERRIDE_FRAME_POINTER_DEFAULT=y
+CONFIG_USE_SEGGER_RTT=n
+CONFIG_BUILD_OUTPUT_STRIPPED=y
+CONFIG_FAULT_DUMP=0
+CONFIG_STACK_SENTINEL=y
+```
+
+For now, don't worry about the symbols in this file, we'll catch up on them in the section about [Kconfig hardening](#kconfig-hardening). We can now instruct `west` to use this `prj_release.conf` _instead_ of our `prj.conf` for the build by using the following command:
+
 ```bash
-west build --board nrf52840dk_nrf52840 -d ../build -- -DCONF_FILE=prj_release.conf
+$ rm -rf ../build
+$ west build --board nrf52840dk_nrf52840 -d ../build -- -DCONF_FILE=prj_release.conf
+```
+
+If you scroll through the output of the `west build` command, you'll notice that `Kconfig` will now merge `prj_release.conf` into our final configuration:
+
+```
+Parsing /opt/nordic/ncs/v2.4.0/zephyr/Kconfig
+Loaded configuration '/opt/nordic/ncs/v2.4.0/zephyr/boards/arm/nrf52840dk_nrf52840/nrf52840dk_nrf52840_defconfig'
+Merged configuration '/path/to/01_kconfig/prj_release.conf'
+Configuration saved to '/path/to/zephyr_practical/build/zephyr/.config'
+```
+
+Thus, in short, Zephyr accepts build types by specifying an alternative `Kconfig` file with a file name format `prj_<build>.conf` using the `CONF_FILE` build system variable. The name of the build type is entirely application specific and does not imply any, e.g., compiler optimizations.
+
+> **Notice:** Zephyr uses `Kconfig` to specify build types and also optimizations. Thus, `CMake` options such as [`CMAKE_BUILD_TYPE`][cmake-build-type] are typically **not** used directly in Zephyr projects.
+
+### Board-specific Kconfig fragments
+
+Aside from the application configuration file [prj.conf](../00_empty/prj.conf), Zephyr also automatically picks up board specific `Kconfig` fragments. Such fragments are placed in the `boards` directory in the project root (next to the `CMakeLists.txt` file) and use the `<board>.conf` name format.
+
+E.g., throughout this guide we're using the nRF52840 development kit which has the board name `nrf52840dk_nrf52840`. Thus, the file `boards/nrf52840dk_nrf52840.conf` will automatically merged into the `Kconfig` configuration during the build.
+
+Let's try this out by disabling UART as console output using a new file `boards/nrf52840dk_nrf52840.conf`. For the nRF52840 development kit this symbol is enabled by default, you can go ahead and verify this by checking the default configuration `zephyr/boards/arm/nrf52840dk_nrf52840/nrf52840dk_nrf52840_defconfig` - or take my word for it:
+
+```bash
+tree --charset=utf-8 --dirsfirst
+.
+├── boards
+│   └── nrf52840dk_nrf52840.conf
+├── src
+│   └── main.c
+├── CMakeLists.txt
+├── prj.conf
+└── prj_release.conf
+
+$ cat boards/nrf52840dk_nrf52840.conf
+```
+```conf
+CONFIG_UART_CONSOLE=n
+```
+
+Then, we perform a _pristine_ build of the project.
+
+
+```bash
+$ west build --board nrf52840dk_nrf52840 -d ../build --pristine
+```
+
+In the output of `west build` you should see that the new file `boards/nrf52840dk_nrf52840.conf` is indeed merged into the `Kconfig` configuration. In fact, you should also see a warning that the Zephyr library `drivers__console` is excluded from the build since it now has no `SOURCES`:
+
+```
+Parsing /opt/nordic/ncs/v2.4.0/zephyr/Kconfig
+Loaded configuration '/opt/nordic/ncs/v2.4.0/zephyr/boards/arm/nrf52840dk_nrf52840/nrf52840dk_nrf52840_defconfig'
+Merged configuration '/path/to/01_kconfig/prj.conf'
+Merged configuration '/path/to/01_kconfig/boards/nrf52840dk_nrf52840.conf'
+Configuration saved to '/path/to/build/zephyr/.config'
+...
+CMake Warning at /opt/nordic/ncs/v2.4.0/zephyr/CMakeLists.txt:838 (message):
+  No SOURCES given to Zephyr library: drivers__console
+  Excluding target from build.
+```
+
+You can of course verify that the symbol is indeed disabled by checking the `zephyr/.config` file in the `build` directory.
+
+> **Notice:** Previous versions of Zephyr used a `prj_<board>.conf` board in the project root directory and at the time of writing the build system will still merge any such file into the configuration. This file, however, is deprecated and the `boards/<board>.conf` should be used instead.
+
+But how does this work with our previously created `release` build type? Let's try it out and have a look at the build output:
+
+```bash
+$ rm -rf ../build
+$ west build --board nrf52840dk_nrf52840 -d ../build -- -DCONF_FILE=prj_release.conf
+```
+```
+Parsing /opt/nordic/ncs/v2.4.0/zephyr/Kconfig
+Loaded configuration '/opt/nordic/ncs/v2.4.0/zephyr/boards/arm/nrf52840dk_nrf52840/nrf52840dk_nrf52840_defconfig'
+Merged configuration '/path/to/01_kconfig/prj_release.conf'
+Configuration saved to '/path/to/build/zephyr/.config'
+```
+
+Well, this is awkward: Even though we provided a board specific `Kconfig` fragment it is ignored as soon as we switch to our alternative `prj_release.conf` configuration. This is, however, [working as intended][zephyr-kconfig-merge]: When using alternative `Kconfig` files in the format `prj_<build>.conf`, Zephyr looks for a board fragment matching the file name `boards/<board>_<build>.conf`.
+
+In our case, we can create the file `boards/nrf52840dk_nrf52840_release.conf`. Let's get rid of the warning for the Zephyr library `drivers__console` by disabling the `CONSOLE` entirely in our board release configuration:
+
+```bash
+tree --charset=utf-8 --dirsfirst
+.
+├── boards
+│   ├── nrf52840dk_nrf52840.conf
+│   └── nrf52840dk_nrf52840_release.conf
+├── src
+│   └── main.c
+├── CMakeLists.txt
+├── prj.conf
+└── prj_release.conf
+
+$ cat boards/nrf52840dk_nrf52840_release.conf
+```
+```conf
+CONFIG_CONSOLE=n
+CONFIG_UART_CONSOLE=n
+```
+
+Now, when we rebuild the project we'll see that our board fragment is merged into the `Kconfig` configuration, and no more warning should be thrown by `west build`:
+
+```bash
+$ rm -rf ../build
+$ west build --board nrf52840dk_nrf52840 -d ../build -- -DCONF_FILE=prj_release.conf
+```
+```
+Parsing /opt/nordic/ncs/v2.4.0/zephyr/Kconfig
+Loaded configuration '/opt/nordic/ncs/v2.4.0/zephyr/boards/arm/nrf52840dk_nrf52840/nrf52840dk_nrf52840_defconfig'
+Merged configuration '/path/to/01_kconfig/prj_release.conf'
+Merged configuration '/path/to/01_kconfig/boards/nrf52840dk_nrf52840_release.conf'
+Configuration saved to '/path/to/build/zephyr/.config'
 ```
 
 ### Extra configuration files
 
-EXTRA_CONF_FILE replaces OVERLAY_CONFIG
-hidden in the [important build system variables][zephyr-kconfig-extra]
+There is one more option to modify the `Kconfig`, listed in the [important build system variables][zephyr-kconfig-extra]: `EXTRA_CONF_FILE`. This build system variable accepts one or more additional `Kconfig` fragments. This option can be useful, e.g., to specify additional configuration options used by multiple build types in a separate fragment.
 
-`-DOVERLAY_CONFIG`
-https://github.com/zephyrproject-rtos/zephyr/issues/52996#issuecomment-1348484066
+> Since [Zephyr 3.4.0][zephyr-rn-3.4.0] the `EXTRA_CONF_FILE` build system variable replaces the deprecated variable `OVERLAY_CONFIG`.
+
+Let's add to additional `Kconfig` fragments `extra0.conf` and `extra1.conf`:
+
+```bash
+$ tree --charset=utf-8 --dirsfirst -I readme.md
+.
+├── boards
+│   ├── nrf52840dk_nrf52840.conf
+│   └── nrf52840dk_nrf52840_release.conf
+├── src
+│   └── main.c
+├── CMakeLists.txt
+├── extra0.conf
+├── extra1.conf
+├── prj.conf
+└── prj_release.conf
+
+$ cat extra0.conf
+CONFIG_DEBUG=n
+
+$ cat extra1.conf
+CONFIG_GPIO=n
+```
+
+We can now pass the two extra configuration fragments to the build system using the `EXTRA_CONF_FILE` variable. The paths are relative to the project root and can either be separated using semicolons or spaces:
+
+```bash
+$ rm -rf ../build
+$ west build --board nrf52840dk_nrf52840 -d ../build -- \
+  -DEXTRA_CONF_FILE="extra0.conf;extra1.conf"
+```
+```
+Parsing /opt/nordic/ncs/v2.4.0/zephyr/Kconfig
+Loaded configuration '/opt/nordic/ncs/v2.4.0/zephyr/boards/arm/nrf52840dk_nrf52840/nrf52840dk_nrf52840_defconfig'
+Merged configuration '/path/to/01_kconfig/prj.conf'
+Merged configuration '/path/to/01_kconfig/boards/nrf52840dk_nrf52840.conf'
+Merged configuration '/path/to/01_kconfig/extra0.conf'
+Merged configuration '/path/to/01_kconfig/extra1.conf'
+Configuration saved to '/path/to/build/zephyr/.config'
+```
+
+The fragments specified with the `EXTRA_CONF_FILE` variable are merged into the final configuration in the given order. E.g., let's create `release` build and reverse the order of the fragments:
+
+```bash
+$ rm -rf ../build
+$ west build --board nrf52840dk_nrf52840 -d ../build -- \
+  -DCONF_FILE="prj_release.conf" \
+  -DEXTRA_CONF_FILE="extra1.conf;extra0.conf"
+```
+```
+Parsing /opt/nordic/ncs/v2.4.0/zephyr/Kconfig
+Loaded configuration '/opt/nordic/ncs/v2.4.0/zephyr/boards/arm/nrf52840dk_nrf52840/nrf52840dk_nrf52840_defconfig'
+Merged configuration '/path/to/01_kconfig/prj_release.conf'
+Merged configuration '/path/to/01_kconfig/boards/nrf52840dk_nrf52840_release.conf'
+Merged configuration '/path/to/01_kconfig/extra1.conf'
+Merged configuration '/path/to/01_kconfig/extra0.conf'
+Configuration saved to '/path/to/build/zephyr/.config'
+```
+
+
 
 ## Kconfig hardening
 
-[Hardening tool][zephyr-hardening]
+One more tool worth mentioning when talking about `Kconfig` is the [hardening tool][zephyr-hardening]. Just like `menuconfig` and `guiconfig`, this tool is a target for `west build`. It is executed using the `-t hardenconfig` target in the call to `west build`. The hardening tool checks the `Kconfig` symbols against a set of known configuration options that should be used for a secure Zephyr application, and lists all differences found in the application.
 
-## Overlays and build configurations
+We can use this tool to check our normal and `release` configurations:
 
+```bash
+$ # test normal build
+$ west build --board nrf52840dk_nrf52840 \
+  -d ../build \
+  --pristine \
+  -t hardenconfig
 
-search: reduce footprint .rst
+$ # test release build
+$ west build --board nrf52840dk_nrf52840 \
+  -d ../build \
+  --pristine \
+  -t hardenconfig \
+  -- -DCONF_FILE=prj_release.conf
+```
+
+For the normal build using `prj.conf`, the hardening tool will display a table of all symbols whose current value does not match the recommended, secure configuration value, e.g., at the time of writing this is the output for the normal build:
+
+```
+-- west build: running target hardenconfig
+[0/1] cd /path/to/zephyr/kconfig/hardenconfig.py /opt/nordic/ncs/v2.4.0/zephyr/Kconfig
+                 name                 | current | recommended || check result
+==============================================================================
+CONFIG_OVERRIDE_FRAME_POINTER_DEFAULT |    n    |      y      ||     FAIL
+CONFIG_USE_SEGGER_RTT                 |    y    |      n      ||     FAIL
+CONFIG_BUILD_OUTPUT_STRIPPED          |    n    |      y      ||     FAIL
+CONFIG_FAULT_DUMP                     |    2    |      0      ||     FAIL
+CONFIG_STACK_SENTINEL                 |    n    |      y      ||     FAIL
+```
+
+The symbols in `prj_release.conf` have been chosen such that at the time of writing all hardening options are fulfilled and the above table is empty.
+
 
 
 ## A custom Kconfig symbol
@@ -422,10 +648,10 @@ application inherits the board configuration file, <board_name>_defconfig, of th
 
 
 
+https://blog.golioth.io/debugging-zephyr-for-beginners-printk-and-the-logging-subsystem/
 
 
-
-
+## Further reading
 
 [don't][zephyr-kconfig-dont]
 
@@ -464,9 +690,12 @@ config NUM_IRQS
 [zephyr-kconfig-syntax]: https://docs.zephyrproject.org/latest/build/kconfig/setting.html#setting-kconfig-configuration-values
 [zephyr-hardening]: https://docs.zephyrproject.org/latest/security/hardening-tool.html
 [zephyr-dts]: https://docs.zephyrproject.org/latest/build/dts/index.html
+[zephyr-west-dashdash]: https://docs.zephyrproject.org/latest/develop/west/build-flash-debug.html#one-time-cmake-arguments
+[zephyr-rn-3.4.0]: https://docs.zephyrproject.org/latest/releases/release-notes-3.4.html
 [golioth]: https://golioth.io/
 [golioth-kconfig-diff]: https://blog.golioth.io/zephyr-quick-tip-show-what-menuconfig-changed-and-make-changes-persistent/
 [serial-dt]: https://www.decisivetactics.com/products/serial/
 [serial-putty]: https://www.putty.org/
 [kernel-config]: https://www.kernel.org/doc/html/latest/kbuild/kconfig-language.html
 [zephyr-dconf]: https://docs.zephyrproject.org/latest/develop/application/index.html#basics
+[cmake-build-type]: https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html

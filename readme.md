@@ -8,6 +8,10 @@ basically a more extensive getting started guide
 problem with zephr docs is that there is so much information that is not yet relevant when learning zephr.
 
 
+more chapters
+- build optimizations (COMPILER_OPTIMIZATIONS Kconfig)
+
+
 vscode window size:
 https://stackoverflow.com/a/68764796/7281683
 window.resizeTo(1200, 1000);
