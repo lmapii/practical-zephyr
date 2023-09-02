@@ -9,7 +9,10 @@ problem with zephr docs is that there is so much information that is not yet rel
 
 
 more chapters
-- build optimizations (COMPILER_OPTIMIZATIONS Kconfig)
+- build optimizations (COMPILER_OPTIMIZATIONS Kconfig),
+- build flags (activate well known/helpful warnings !!)
+- testing with twister
+- code analysis (new! code checker)
 
 
 vscode window size:
@@ -20,3 +23,8 @@ terminal
 Preferences>>Profiles>>[Profile we need to modify]>>Window
 https://apple.stackexchange.com/a/429321
 100x32
+
+logging
+https://blog.golioth.io/debugging-zephyr-for-beginners-printk-and-the-logging-subsystem/
+
+https://blog.benjamin-cabe.com/2023/08/23/enabling-codechecker-for-your-zephyr-rtos-project

@@ -1,7 +1,7 @@
 
 Logging as demo for Kconfig
 
-- [Goal](#goal)
+- [Goals](#goals)
 - [Getting started using `printk`](#getting-started-using-printk)
 - [Kconfig](#kconfig)
   - [Configuring symbols](#configuring-symbols)
@@ -16,12 +16,17 @@ Logging as demo for Kconfig
   - [Extra configuration files](#extra-configuration-files)
 - [Kconfig hardening](#kconfig-hardening)
 - [A custom Kconfig symbol](#a-custom-kconfig-symbol)
-- [Logging](#logging)
+  - [Adding a custom configuration](#adding-a-custom-configuration)
+  - [Configuring the application build using `Kconfig`](#configuring-the-application-build-using-kconfig)
+  - [Using the application's `Kconfig` symbol](#using-the-applications-kconfig-symbol)
+- [Summary](#summary)
 - [Further reading](#further-reading)
 
-## Goal
+## Goals
 
 In this section, we'll explore the [Kconfig configuration system][zephyr-kconfig] by looking at the `printk` logging option in Zephyr. [_Logging_][zephyr-logging] in Zephyr is everything from simple [`print`-style text logs][zephyr-printk] to customized messaging. Notice, though, that we'll _not_ explore the logging service in detail, but only use it as an excuse to dig into [Kconfig][zephyr-kconfig]. Finally, we'll create our own little application specific `Kconfig` configuration.
+
+TODO: Kconfig == Kernel configuration.
 
 ## Getting started using `printk`
 
@@ -60,7 +65,7 @@ As mentioned in the [previous section](../00_empty/readme.md), in this guide we'
 * Data bits: _8_
 * No parity, one stop bit.
 
-The connection settings for the UART interface are configured using the [Devicetree][zephyr-dts]. We'll explore the devicetree in later sections. Since these default settings are all we need for now, let's focus on Kconfig and go ahead and build and flash the project:
+The connection settings for the UART interface are configured using the [Devicetree][zephyr-dts]. We'll explore the devicetree in a later chapter. Since these default settings are all we need for now, let's focus on Kconfig and go ahead and build and flash the project:
 
 ```bash
 $ west build --board nrf52840dk_nrf52840 --build-dir ../build
@@ -522,14 +527,14 @@ Configuration saved to '/path/to/build/zephyr/.config'
 
 ### Extra configuration files
 
-There is one more option to modify the `Kconfig`, listed in the [important build system variables][zephyr-kconfig-extra]: `EXTRA_CONF_FILE`. This build system variable accepts one or more additional `Kconfig` fragments. This option can be useful, e.g., to specify additional configuration options used by multiple build types in a separate fragment.
+There is one more option to modify the `Kconfig`, listed in the [important build system variables][zephyr-kconfig-extra]: `EXTRA_CONF_FILE`. This build system variable accepts one or more additional `Kconfig` fragments. This option can be useful, e.g., to specify additional configuration options used by multiple build types (normal builds, "release" builds, "debug" builds) in a separate fragment.
 
 > Since [Zephyr 3.4.0][zephyr-rn-3.4.0] the `EXTRA_CONF_FILE` build system variable replaces the deprecated variable `OVERLAY_CONFIG`.
 
-Let's add to additional `Kconfig` fragments `extra0.conf` and `extra1.conf`:
+Let's add two `Kconfig` fragments `extra0.conf` and `extra1.conf`:
 
 ```bash
-$ tree --charset=utf-8 --dirsfirst -I readme.md
+$ tree --charset=utf-8 --dirsfirst
 .
 ├── boards
 │   ├── nrf52840dk_nrf52840.conf
@@ -566,7 +571,7 @@ Merged configuration '/path/to/01_kconfig/extra1.conf'
 Configuration saved to '/path/to/build/zephyr/.config'
 ```
 
-The fragments specified with the `EXTRA_CONF_FILE` variable are merged into the final configuration in the given order. E.g., let's create `release` build and reverse the order of the fragments:
+The fragments specified with the `EXTRA_CONF_FILE` variable are merged into the final configuration in the given order. E.g., let's create a `release` build and reverse the order of the fragments:
 
 ```bash
 $ rm -rf ../build
@@ -627,31 +632,278 @@ The symbols in `prj_release.conf` have been chosen such that at the time of writ
 
 ## A custom Kconfig symbol
 
-TODO: our own little Kconfig option "fancy greeting", and then require CONFIG_PRINTK or CONFIG_LOG
-TODO: release and debug configurations
+In the previous sections, we had a thorough look at `Kconfig` and its workings. To wrap up this chapter, we'll create a custom, application specific symbol and use it our application and build process. While this is a rather unlikely use case, it nicely demonstrates how `Kconfig` works.
+
+> This section borrows from the [nRF Connect SDK Fundamentals lesson on configuration files][nordicsemi-academy-kconfig] that is freely available in the [Nordic Developer Academy][nordicsemi-academy]. If you're looking for additional challenges, check out the available courses!
+
+### Adding a custom configuration
+
+[CMake automatically detects a `Kconfig` file][zephyr-kconfig-cmake] if it is placed in the same directory of the application's `CMakeLists.txt`, and that is what we'll use to for our own configuration file. In case you want to place the `Kconfig` file somewhere else, you can customize this behavior using an absolute path for the `KCONFIG_ROOT` build system variable.
+
+Similar to the file `zephyr/subsys/debug/Kconfig` of Zephyr's _debug_ subystem, the `Kconfig` file specifies all available configuration options and their dependencies. We'll only specify a simple boolean symbol in the `Kconfig` file in our application's root directory. Please refer to the [official documentation][zephyr-kconfig-syntax] for details about the `Kconfig` syntax:
 
 
+```bash
+$ tree --charset=utf-8 --dirsfirst -L 1
+.
+├── boards
+├── src
+├── CMakeLists.txt
+├── Kconfig
+├── extra0.conf
+├── extra1.conf
+├── prj.conf
+└── prj_release.conf
 
+$ cat Kconfig
+```
+```conf
+mainmenu "Customized Menu Name"
+source "Kconfig.zephyr"
 
+menu "Application Options"
+config USR_FUN
+	bool "Enable usr_fun"
+	default n
+	help
+	  Enables the usr_fun function.
+endmenu
+```
 
+The skeleton of this `Kconfig` file is well explained in the [official documentation][zephyr-kconfig-cmake]:
 
-## Logging
+The statement _"mainmenu"_ simply defines some text that is used as our `Kconfig` main menu. It is shown, e.g., as title in the build target `menuconfig`. We'll see this in a moment when we'll build our target and launch `menuconfig`.
 
-`printk` output is sent immediately, without any mutual exclusion or buffering.
-logging: deferred. done by which thread? can we use gdb to list all threads?
+The _"source"_ statement essentially includes the top-level Zephyr Kconfig file `zephyr/Kconfig.zephyr` and all of its symbols (all _"source"_ statements are relative to the Zephyr root directory). This is necessary since we're effectively replacing the `zephyr/Kconfig` file of the Zephyr base that is usually _parsed_ as the first file by `Kconfig`. We'll see this below when we look at the build output. The contents of the default root `Kconfig` file are quite similar to what we're doing right now:
 
-build/zephyr/.config
-west build --board nrf52840dk_nrf52840 -d ../build -t menuconfig
+```bash
+$ cat $ZEPHYR_BASE/Kconfig
+# -- hidden comments --
+mainmenu "Zephyr Kernel Configuration"
+source "Kconfig.zephyr"
+```
 
+Thus, by sourcing the `Kconfig.zephr` file, we're loading all `Kconfig` menus and symbols provided with Zephr. Next, we declare our own menu between the _"menu"_ and _"endmenu"_ statements to group our application symbols. Within this menu, we declare our `USR_FUN` symbol, which we'll use to enable a function `usr_fun`.
+
+Let's rebuild our application without configuring `USR_FUN` and have a look at the build output:
+
+```bash
+$ west build --board nrf52840dk_nrf52840 -d ../build --pristine
+```
+```
+Parsing /path/to/01_kconfig/Kconfig
+Loaded configuration '/opt/nordic/ncs/v2.4.0/zephyr/boards/arm/nrf52840dk_nrf52840/nrf52840dk_nrf52840_defconfig'
+Merged configuration '/path/to/01_kconfig/prj.conf'
+Merged configuration '/path/to/01_kconfig/boards/nrf52840dk_nrf52840.conf'
+Configuration saved to '/path/to/build/zephyr/.config'
 Kconfig
-application inherits the board configuration file, <board_name>_defconfig, of the board
+```
+
+Have a good look at the very first line of the `Kconfig` related output:
+* In our previous builds, this line indicated the use of Zephyr's default `Kconfig` file as follows:
+  `Parsing /opt/nordic/ncs/v2.4.0/zephyr/Kconfig`,
+* Whereas now it uses our newly created `Kconfig` file:
+  `Parsing /path/to/01_kconfig/Kconfig`.
+
+The remainder of the output should look familiar. When we look at the generated `zephyr/.config` file in our build directory, we'll see that the `USR_FUN` symbol is indeed set according to its default value `n`:
+
+```bash
+$ cat ../build/zephyr/.config
+```
+```conf
+# Application Options
+#
+# CONFIG_USR_FUN is not set
+# end of Application Options
+```
+
+The new, custom main menu name _"Customized Menu Name"_ is only visible in the interactive `Kconfig` tools, such as `menuconfig`, and is not used within the generated `zephyr/.config` file. The interactive tools now also show our newly created menu and symbol.
+
+As you can see in the below screenshot, the main menu has the name _"Customized Menu Name"_ and a new menu _"Application Options"_ is now available as the last entry of options:
+
+```bash
+$ west build -d ../build -t menuconfig
+```
+
+![Screenshot menuconfig with custom mainmenu](../assets/kconfig-custom.png?raw=true "menuconfig")
+![Screenshot menuconfig with application menu](../assets/kconfig-application.png?raw=true "menuconfig")
+
+> **Notice:** It is also possible to source `Kconfig.zephyr` _after_ defining the application symbols and menus. This would have the effect that your options will be listed _before_ the Zephyr symbols and menus. In this section, we've sourced `Kconfig.zephr` before our own options since this is also the case in the template used by the official documentation.
+
+### Configuring the application build using `Kconfig`
+
+Now that we have our own `Kconfig` symbol, we can make use of it in the application's build process. Create two new files `usr_fun.c` and `usr_fun.h` in the `src` directory:
+
+```bash
+$ tree --charset=utf-8 --dirsfirst
+.
+├── boards
+│   ├── nrf52840dk_nrf52840.conf
+│   └── nrf52840dk_nrf52840_release.conf
+├── src
+│   ├── main.c
+│   ├── usr_fun.c
+│   └── usr_fun.h
+├── CMakeLists.txt
+├── Kconfig
+├── extra0.conf
+├── extra1.conf
+├── prj.conf
+└── prj_release.conf
+```
+
+We're defining a simple function `usr_fun` that prints an additional message on boot using the newly created files:
+
+```c
+// Content of usr_fun.h
+#pragma once
+
+void usr_fun(void);
+```
+```c
+// Content of usr_fun.c
+#include "usr_fun.h"
+#include <zephyr/kernel.h>
+
+void usr_fun(void)
+{
+    printk("Message in a user function.\n");
+}
+```
+
+Now all that's left to do is to tell `CMake` about our new files. Instead of always including these files when building our application, we use our `Kconfig` symbol `USR_FUN` to only include the files in the build in case the symbol is enabled by adding the following to our `CMakeLists.txt`:
+
+```cmake
+target_sources_ifdef(
+    CONFIG_USR_FUN
+    app
+    PRIVATE
+    src/usr_fun.c
+)
+```
+
+`target_sources_ifdef` is another `CMake` extension from `zephyr/cmake/modules/extensions.cmake`: It conditionally includes our files in the build in case `CONFIG_USR_FUN` is defined. Since the symbol `USR_FUN` is _disabled_ by default, our build currently does not include `usr_fun`.
+
+
+### Using the application's `Kconfig` symbol
+
+Let's first extend our `main.c` file to use `usr_fun` as if it were a regular application:
+
+```c
+#include <zephyr/kernel.h>
+#include "usr_fun.h"
+
+#define SLEEP_TIME_MS 100U
+
+void main(void)
+{
+    printk("Message in a bottle.\n");
+    usr_fun();
+
+    while (1)
+    {
+        k_msleep(SLEEP_TIME_MS);
+    }
+}
+```
+
+Unsurprisingly, building this application fails since `usr_fun.c` is not included in the build:
+
+```bash
+$ west build --board nrf52840dk_nrf52840 -d ../build --pristine
+```
+```
+[158/168] Linking C executable zephyr/zephyr_pre0.elf
+FAILED: zephyr/zephyr_pre0.elf zephyr/zephyr_pre0.map
+--snip--
+/path/to/ld.bfd: app/libapp.a(main.c.obj): in function `main':
+/path/to/main.c:9: undefined reference to `usr_fun'
+collect2: error: ld returned 1 exit status
+ninja: build stopped: subcommand failed.
+FATAL ERROR: command exited with status 1: /path/to/cmake --build /path/to/build
+```
+
+We have two possibilities to fix our build: The first possibility is to enable `USR_FUN` in our kernel configuration, e.g., in our `prj.conf` file:
+
+```conf
+# --snip--
+CONFIG_USR_FUN=y
+```
+
+This, however, kind of defeats the purpose of having a configurable build: The build would still fail in case we're not enabling `USR_FUN`. Instead, we can also use the `USR_FUN` symbol within our code to only conditionally include parts of our application:
+
+```c
+#include <zephyr/kernel.h>
+
+#ifdef CONFIG_USR_FUN
+#include "usr_fun.h"
+#endif
+
+#define SLEEP_TIME_MS 100U
+
+void main(void)
+{
+    printk("Message in a bottle.\n");
+
+#ifdef CONFIG_USR_FUN
+    usr_fun();
+#endif
+
+    while (1)
+    {
+        k_msleep(SLEEP_TIME_MS);
+    }
+}
+```
+
+Now our build succeeds for either configuration of the `USR_FUN` symbol. Clearly, we could also use an approach similar to `printk` and provide an empty function or definition for `usr_fun` instead of adding conditional statements to our application.
+
+> **Note:** The application builds and links, but you won't see any output on the serial console in case you've followed along: The `Kconfig` symbols responsible for the serial output are still disabled within `prj.conf` and the board specific fragment. Feel free to update your configuration, e.g., by enabling the debug output for normal builds while disabling it for the "release" build!
+
+To understand why we can use the `CONFIG_USR_FUN` definition we can have a look at the compiler commands used to compiler `main.c`. Conveniently (as mentioned by the previous chapter), by default Zephyr enables the `CMake` variable [`CMAKE_EXPORT_COMPILE_COMMANDS`][cmake-compile-commands]. The compiler command for `main.c` is thus captured by the `compile_commands.json` in our build directory:
+
+```json
+{
+  "directory": "/path/to/build",
+  "command": "/path/to/bin/arm-zephyr-eabi-gcc --SNIP-- -o CMakeFiles/app.dir/src/main.c.obj -c /path/to/main.c",
+  "file": "/path/to/main.c"
+},
+```
+
+Within the large list of parameters passed to the compiler, there is also the `-imacros` option specifying the `autoconf.h` Kconfig header file:
+
+```
+-imacros /path/to/build/zephyr/include/generated/autoconf.h
+```
+
+This header file contains the configured value of the `USR_FUN` symbol as macro:
+
+```c
+// --snip---
+#define CONFIG_USR_FUN 1
+```
+
+Looking at the [official documentation of the `-imacros` option for `gcc`][gcc-imacros], you'll find that this option acquires all the macros of the specified header without also processing its declarations. Thus, all macros within the `autoconf.h` files are also available at compile time.
 
 
 
-https://blog.golioth.io/debugging-zephyr-for-beginners-printk-and-the-logging-subsystem/
+## Summary
+
+In this chapter we've explored the _kernel configuration system_ `Kconfig` in great detail. Even if you've never used `Kconfig` before, you should now be able to at least use `Kconfig` with Zephyr, and - in case you're stuck - you should be able to easily navigate the official documentation. In this chapter w've seen:
+
+- How to find and change existing `Kconfig` symbols,
+- how to analyze dependencies between different symbols,
+- files that are automatically picked up by the build system,
+- files generated by `Kconfig`,
+- how to define your own build types and board specific fragments,
+- how to define application specific `Kconfig` symbols, and
+- how the build system and the application uses `Kconfig` symbols.
+
 
 
 ## Further reading
+
+TODO:
 
 [don't][zephyr-kconfig-dont]
 
@@ -664,15 +916,16 @@ Kconfig
 config NUM_IRQS
 	default 48
 
+Custom Kconfig Preprocessor Functions
+https://docs.zephyrproject.org/latest/build/kconfig/preprocessor-functions.html
 
 
 
 
 
 
-
-
-
+[nordicsemi-academy]: https://academy.nordicsemi.com/
+[nordicsemi-academy-kconfig]: https://academy.nordicsemi.com/courses/nrf-connect-sdk-fundamentals/lessons/lesson-3-elements-of-an-nrf-connect-sdk-application/topic/configuration/
 [nordicsemi]: https://www.nordicsemi.com/
 [nordicsemi-nrf52840-dk]: https://www.nordicsemi.com/Products/Development-hardware/nrf52840-dk
 [nrf-vscode-kconfig]: https://marketplace.visualstudio.com/items?itemName=nordic-semiconductor.nrf-kconfig
@@ -688,6 +941,7 @@ config NUM_IRQS
 [zephyr-kconfig-search]: https://docs.zephyrproject.org/latest/kconfig.html
 [zephyr-kconfig-tips]: https://docs.zephyrproject.org/latest/build/kconfig/tips.html#kconfig-tips-and-best-practices
 [zephyr-kconfig-syntax]: https://docs.zephyrproject.org/latest/build/kconfig/setting.html#setting-kconfig-configuration-values
+[zephyr-kconfig-cmake]: https://docs.zephyrproject.org/latest/develop/application/index.html#application-cmakelists-txt
 [zephyr-hardening]: https://docs.zephyrproject.org/latest/security/hardening-tool.html
 [zephyr-dts]: https://docs.zephyrproject.org/latest/build/dts/index.html
 [zephyr-west-dashdash]: https://docs.zephyrproject.org/latest/develop/west/build-flash-debug.html#one-time-cmake-arguments
@@ -699,3 +953,19 @@ config NUM_IRQS
 [kernel-config]: https://www.kernel.org/doc/html/latest/kbuild/kconfig-language.html
 [zephyr-dconf]: https://docs.zephyrproject.org/latest/develop/application/index.html#basics
 [cmake-build-type]: https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html
+[cmake-compile-commands]: https://cmake.org/cmake/help/latest/variable/CMAKE_EXPORT_COMPILE_COMMANDS.html
+[gcc-imacros]: https://gcc.gnu.org/onlinedocs/gcc/Preprocessor-Options.html
+
+
+
+TODO:! only if Kconfig.zephyr is sourced _after_ the application menu
+
+-- Including generated dts.cmake file: /path/to/build/zephyr/dts.cmake
+
+warning: PRINTK (defined at subsys/debug/Kconfig:202) was assigned the value 'n' but got the value
+'y'. See http://docs.zephyrproject.org/latest/kconfig.html#CONFIG_PRINTK and/or look up PRINTK in
+the menuconfig/guiconfig interface. The Application Development Primer, Setting Configuration
+Values, and Kconfig - Tips and Best Practices sections of the manual might be helpful too.
+
+
+TODO: autoconf.h

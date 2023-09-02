@@ -2,6 +2,7 @@
 https://docs.zephyrproject.org/latest/build/zephyr_cmake_package.html#zephyr-cmake-package-search-order
 https://gist.github.com/mbinna/c61dbb39bca0e4fb7d1f73b0d66a4fd1
 
+- [Goals](#goals)
 - [Prerequisites](#prerequisites)
 - [Setup using the nRF Connect SDK](#setup-using-the-nrf-connect-sdk)
 - [Loading the development environment](#loading-the-development-environment)
@@ -21,6 +22,9 @@ https://gist.github.com/mbinna/c61dbb39bca0e4fb7d1f73b0d66a4fd1
 - [A quick glance at IDE Integrations](#a-quick-glance-at-ide-integrations)
 - [Flashing and debugging](#flashing-and-debugging)
 - [Summary](#summary)
+- [Further reading](#further-reading)
+
+## Goals
 
 ## Prerequisites
 
@@ -382,6 +386,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE CACHE BOOL
 
 ## Flashing and debugging
 
+TODO: just explain what's underneath the calls to "west flash" and "west debug" (runners)
 
 
 ## Summary
@@ -398,6 +403,7 @@ workspaces will come up later (this is actually what can be a bit confusing in t
 
 TODO: using a different devkit? `west boards` or is there a list in the docs?
 
+## Further reading
 
 
 [zephyr-getting-started]: https://docs.zephyrproject.org/latest/develop/getting_started/index.html
