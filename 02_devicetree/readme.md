@@ -1,0 +1,578 @@
+
+- [Goals](#goals)
+- [Prerequisites](#prerequisites)
+- [What's a `devicetree`?](#whats-a-devicetree)
+- [Devicetree and Zephyr](#devicetree-and-zephyr)
+  - [CMake integration](#cmake-integration)
+  - [Devicetree includes and sources in Zephyr](#devicetree-includes-and-sources-in-zephyr)
+  - [Compiling the devicetree](#compiling-the-devicetree)
+- [Devicetree basics](#devicetree-basics)
+  - [Source file syntax](#source-file-syntax)
+    - [Node names, unit-addresses, `reg` and labels](#node-names-unit-addresses-reg-and-labels)
+    - [Properties, `compatible` and bindings](#properties-compatible-and-bindings)
+    - [Aliases and chosen nodes](#aliases-and-chosen-nodes)
+  - [File types](#file-types)
+- [Devicetree and Zephyr, take two](#devicetree-and-zephyr-take-two)
+  - [Macrobatics](#macrobatics)
+  - [The `_dt` API](#the-_dt-api)
+  - [pinctrl ???](#pinctrl-)
+  - [Important properties such as status "okay"](#important-properties-such-as-status-okay)
+- [Summary](#summary)
+- [Further reading](#further-reading)
+
+## Goals
+
+In the previous chapter, we've had a look at how to configure _software_, and we've silently assumed that there's a UART interface on our board that is configurable and used for logging.
+
+In this chapter, we'll see how we configure and _use_ our peripherals. For this, Zephyr borrows another tool from the Linux kernel: the **devicetree** compiler. Similar to what we've seen with `Kconfig`, the `devicetree` has been adapted to better fit the needs of Zephyr when comparing it to Linux. We'll have a short look at this as well.
+
+We'll leverage the fact that we're using a development kit with predefined peripherals, have a look at the configuration files that exist in Zephyr, and finally we'll see how we can change them to our needs.
+
+In case you've already had an experience with `devictree`s, a short heads-up: We will _not_ define our own, custom board, and we will _not_ describe memory layouts. This is a more advanced topic and goes beyond this guide. With this chapter, we just want to have a detailed look and familiarize with the tool and files.
+
+TODO: History? Honorable mention of Linaro?
+
+## Prerequisites
+
+TODO: This is part of a series, if you did not read the previous chapters, the least you need is a running project. we're using the Nordic devkit as a base to cheat the installation efforts.
+
+TODO: Knowledge of `Kconfig` is assumed, Zephyr installed. If not, follow along the previous two chapters.
+
+TODO: must know how to draft a zephyr freestanding application
+
+
+## What's a `devicetree`?
+
+Let's first deal with the terminology: In simple words, the _devicetree_ is a tree data structure that you provide to describe your hardware. Each _node_ describes one _device_, e.g., the UART peripheral that we used for logging via `printk` in the previous chapter. Except for the root note, each node has exactly one parent, thus the term _devicetree_.
+
+Devicetree files use their own _DTS (Devicetree Source) format_, defined in the [Devicetree Specification][devicetree-spec]. For certain file types used by `devicetree`, Zephyr uses yet another file format - but fear not, it simply replaces the _DTS format_ by simple `.yaml` files. There are also some more subtle differences between the official devicetree specification and the way it is used in Zephyr, but we'll touch up on that throughout this guide.
+
+The build system takes this _devicetree_ specification and feeds it to its own compiler, which - in case of Zephyr - generates `C` macros data structures that are used by the Zephyr device drivers. For all the readers coming straight from Linux - yes, this approach is a little different than what you're used to, but we'll get to that.
+
+The following is a snippet of Nordic's the _Device Tree Source Include_ file of their nRF52840 SoC:
+
+`zephyr/dts/arm/nordic/nrf52840.dtsi`
+```dts
+#include <arm/armv7-m.dtsi>
+#include "nrf_common.dtsi"
+
+/ {
+  soc {
+    uart0: uart@40002000 {
+      compatible = "nordic,nrf-uarte";
+      reg = <0x40002000 0x1000>;
+      interrupts = <2 NRF_DEFAULT_IRQ_PRIORITY>;
+      status = "disabled";
+    };
+  };
+};
+```
+
+One could compare the devicetree to something like a `struct` in `C` or a `JSON` object. Each node (or object) lists its properties and their values and thus describe the associated device and its configuration. The above snippet should make it obvious, though, that, e.g., in contrast to the much simpler `Kconfig` files, _devicetree_ specifications are by no means self explanatory.
+
+Personally, I felt the details of the [`devicetree` specification][devicetree-spec] or Zephyr's great [official documentation on `devicetree`][zephyr-devicetree] a bit overwhelming, and I could hardly keep all the information in my head, so in this guide I'm choosing a different approach:
+
+Instead of going into detail about _DTS (Devicetree Source) format_ and schemas, we'll start with simple project, build it, and dive straight into the input and output files used or generated by the build process. Based on those files, one by one, we'll try and figure out how this whole thing works.
+
+In case you're looking for a more detailed description of the _DTS (Devicetree Source) format_, other authors provided much more detailed descriptions - much better than anything I could possibly come up with. Here are some of my favourites:
+
+- My obvious first choice is the [official Devicetree specification][devicetree-spec]. Just keep in mind that Zephyr made some slight adjustments.
+- Second, [Zephyr's official documentation on Devicetree][zephyr-devicetree] is very hard to beat.
+- Zephyr's official documentation also includes a more pratical information guide in the form of a [Devicetree How-Tos][zephyr-devicetree].
+- Finally, the official Raspberry PI documentation also has a [great section about Devicetree and the DTS syntax][rpi-devicetree].
+
+
+
+## Devicetree and Zephyr
+
+To get started, we create a new freestanding application with the files listed below. In case you're not familiar with the required files, the installation, or the build process, have a look at the [previous](../00_empty/readme.md) [chapters](../01_kconfig/readme.md) or the official documentation. As mentioned in the [pre-requisites](#prerequisites), you should be familiar with creating, building and running a Zephr application.
+
+```bash
+$ tree --charset=utf-8 --dirsfirst
+.
+├── src
+│   └── main.c
+├── CMakeLists.txt
+└── prj.conf
+```
+
+The `prj.conf` can remain empty for now, and the `CMakeLists.txt` only includes the necessary boilerplate to create a Zephyr application. As application, we'll use the same old `main` function that outputs the string _"Message in a bottle."_ each time it is called, and thus each time the device starts.
+
+```c
+#include <zephyr/kernel.h>
+#define SLEEP_TIME_MS 100U
+
+void main(void)
+{
+    printk("Message in a bottle.\n");
+    while (1)
+    {
+        k_msleep(SLEEP_TIME_MS);
+    }
+}
+```
+
+As usual, we can now build this application for the development kit of choice, in my case, the [nRF52840 Development Kit from Nordic][nordicsemi].
+
+```bash
+$ west build --board nrf52840dk_nrf52840 --build-dir ../build
+```
+
+But wait, we didn't "do anything devicetree" yet, did we? That's right, someone else already did it for us! After our [first look into Zephyr](../00_empty/readme.md) and after [exploring Kconfig](../01_kconfig/readme.md), we're familiar with the build output of our Zephyr application, so let's have a look! You should find a similar output right at the start of your build:
+
+```
+-- Found Dtc: /opt/nordic/ncs/toolchains/4ef6631da0/bin/dtc (found suitable version "1.6.1", minimum required is "1.4.6")
+-- Found BOARD.dts: /opt/nordic/ncs/v2.4.0/zephyr/boards/arm/nrf52840dk_nrf52840/nrf52840dk_nrf52840.dts
+-- Generated zephyr.dts: /path/to/build/zephyr/zephyr.dts
+-- Generated devicetree_generated.h: /path/to/build/zephyr/include/generated/devicetree_generated.h
+-- Including generated dts.cmake file: /path/to/build/zephyr/dts.cmake
+```
+
+### CMake integration
+
+The build output shows us that devicetree - just like Kconfig - is a central part of any application build. It is, in fact, added to your build via the CMake module `zephyr/cmake/modules/dts.cmake`. The first thing that Zephyr is looking for, is the _devicetree compiler_ `dtc` (see, `zephyr/cmake/modules/FindDtc.cmake`). Typically, this tool is in your `$PATH` after installing Zephyr or loading your Zephyr environment:
+
+```bash
+$ where dtc
+/opt/nordic/ncs/toolchains/4ef6631da0/bin/dtc
+```
+
+Since we didn't specify any so called _devicetree overlay file_ (bear with me for now, we'll see how to modify our devicetree using _overlay_ files in a later section), Zephyr then looks for a devicetree source file that matches the specified _board_. In my case, that's the nRF52840 development kit, which is supported in the current Zephyr version: The board and thus its devicetree is fully described by the file `nrf52840dk_nrf52840.dts`.
+
+> **Note:** If you'd be using a custom board that is not supported by Zephyr, you'd have to provide your own DTS file for the board you're using. We won't go into details about adding support for a custom board in this chapter, but at the end of it you should have all the knowledge to do that - or to understand any other guide showing you how to do it.
+
+Let's not dive into the file's contents for now and instead have a look at the build. Somehow, the build ends up with a generated `zephyr.dts` file. A couple of interesting things are happening in this process that are worth mentioning, so we'll have a closer look.
+
+### Devicetree includes and sources in Zephyr
+
+If you're familiar with the [devicetree specification][devicetree-spec], you might have wondered why the devicetree snippet that we've seen before uses C/C++ style `#include` directives:
+
+`zephyr/dts/arm/nordic/nrf52840.dtsi`
+```c
+#include <arm/armv7-m.dtsi>
+#include "nrf_common.dtsi"
+```
+
+The [devicetree specification][devicetree-spec] introduces a dedicated `/include/` compiler directive to include other sources in a DTS file. E.g., our include for `nrf_common.dtsi` should have the following format:
+
+```dts
+/include/ "nrf_common.dtsi"
+```
+
+The reason for this discrepancy is that Zephyr uses the C/C++ preprocessor to resolve includes - and for resolving actual C macros that are used within DTS files. This happens in the call to the CMake function `zephyr_dt_preprocess` in the devicetree CMake module.
+
+Let's have a look at the include tree of the devicetree source file of the nRF52840 development kit used in my build:
+
+```
+nrf52840dk_nrf52840.dts
+├── nordic/nrf52840_qiaa.dtsi
+│   ├── mem.h
+│   └── nordic/nrf52840.dtsi
+│       ├── arm/armv7-m.dtsi
+│       │   └── skeleton.dtsi
+│       └── nrf_common.dtsi
+│           ├── zephyr/dt-bindings/adc/adc.h
+│           ├── zephyr/dt-bindings/adc/nrf-adc.h
+│           │   └── zephyr/dt-bindings/dt-util.h
+│           │       └── zephyr/sys/util_macro.h
+│           │           └── zephyr/sys/util_internal.h
+│           │               └── util_loops.h
+│           ├── zephyr/dt-bindings/gpio/gpio.h
+│           ├── zephyr/dt-bindings/i2c/i2c.h
+│           ├── zephyr/dt-bindings/pinctrl/nrf-pinctrl.h
+│           ├── zephyr/dt-bindings/pwm/pwm.h
+│           ├── freq.h
+│           └── arm/nordic/override.dtsi
+└── nrf52840dk_nrf52840-pinctrl.dtsi
+```
+
+> **Note:** You might have noticed the file extensions `.dts` and `.dtsi`. Both file extensions are devicetree source files, but by convention the `.dtsi` extension is used for DTS files that are intended to be _included_ by other files. We'll get back to file types and extensions in a later section. TODO: ref.
+
+It's all starting to make sense, doesn't it?
+- Since we didn't specify anything external in an overlay file, our outermost devicetree source file is our _board_ `nrf52840dk_nrf52840.dts`.
+- Our board uses the nRF52840 QIAA microcontroller from Nordic, which is described in its own devicetree include source file `nrf52840_qiaa.dtsi`.
+- That MCU is in turn is a variant of the nRF52840, and therefore includes `nrf52840.dtsi`.
+- The nRF52840 is an ARMv7 core, which is described in `armv7-m.dtsi`.
+- In addition, the nRF52840 uses Nordic's peripherals, specified in `nrf_common.dtsi`.
+
+The included C/C++ header files `.h` simply leverage the fact that Zephyr uses the preprocessor and we're therefore allowed to use macros within devicetree source files: All the macros will be replaced by their values before the actual compilation process.
+
+This type of include graph is very common for devicetrees in Zephyr: You start with your _board_, which uses a specific _MCU_, which has a certan _architecture_ and vendor specific peripherals.
+
+For each included file, each device tree source file can reference or overwrite properties and nodes. E.g., for our console output we can find the following parts (the below snippets are incomplete!) in the device tree source file of the development kit:
+
+`nrf52840dk_nrf52840.dts`
+```dts
+/ {
+	chosen {
+		zephyr,console = &uart0;
+	};
+};
+
+&uart0 {
+	compatible = "nordic,nrf-uarte";
+	status = "okay";
+	current-speed = <115200>;
+};
+```
+
+With `zephyr,console` we seem to be able to tell Zephyr that we want it to use the node `uart0` for the console output and therefore `printk` statements. We're also modifying the `&uart0` reference's properties, e.g., we set the baud rate to `115200` and enable it by setting its status to "okay".
+
+The `uart0` node is in turn defined in the included devicetree source file of the SoC `nrf52840.dtsi`, and seems to be disabled by default.
+
+`nrf52840.dtsi`
+```dts
+/ {
+  soc {
+    uart0: uart@40002000 {
+      compatible = "nordic,nrf-uarte";
+      reg = <0x40002000 0x1000>;
+      interrupts = <2 NRF_DEFAULT_IRQ_PRIORITY>;
+      status = "disabled";
+    };
+  };
+};
+```
+
+But that's enough devicetree syntax for now. After this step, we end up with a single `zephyr.dts.pre` devicetree (DTS) source file.
+
+### Compiling the devicetree
+
+At the beginning of this chapter we mentioned that Zephyr uses the `dtc` devicetree compiler to generate the corresponding source code. That is, however, not entirely true: While `dtc` is definitely invoked during in the build process, it is not used to generate any source code. Instead, Zephyr feeds the flat `zephyr.dts.pre` into its own `GEN_DEFINES_SCRIPT` Python script, which defaults to `zephyr/scripts/dts/gen_defines.py`.
+
+Now, why would you want to do that? The devicetree compiler `dtc` is typically used to compile devicetree sources into into a binary format called devicetree blob `dtb`. The Linux kernel, e.g., parses the DTB and uses the information to configure and initialize the hardware components described in the DTB. This allows the kernel to know how to communicate with the hardware without hardcoding this information in the kernel code. Thus, under Linux, the devicetree is parsed and loaded during _runtime_.
+
+Zephyr, however, is designed to run on resource constrained, embedded systems. It is simply not feasible to load a devicetree during runtime: This would take up too many resources in both, the Zephyr drivers and for storing the devicetree itself. Instead, the devicetree is resolved during _compile time_.
+
+> **Note:** In case this guide is too slow for you but you still want to know more about devicetree, there is a [brilliant video of the Zephyr Development Summit 22 by Bolivar on devicetree][zephyr-summit-22-devicetree].
+
+So if not a binary, what's the output of this `gen_defines.py` generator? Let's have another peek at the output of our build process:
+
+```
+-- Generated zephyr.dts: /path/to/build/zephyr/zephyr.dts
+-- Generated devicetree_generated.h: /path/to/build/zephyr/include/generated/devicetree_generated.h
+-- Including generated dts.cmake file: /path/to/build/zephyr/dts.cmake
+```
+
+We get three files: The `zephyr.dts` that has been generated out of our preprocessed `zephyr.dts.pre`, a `devicetree_generated.h` header file, and a CMake file `dts.cmake`.
+
+As promised, the original devicetree `dtc` compiler _is_ invoked during the build, and that's where it comes into play: The `zephyr.dts` devicetree source file is fed into `dtc`, but not to generate any binaries or source code, but to generate warnings and errors. The output itself is discarded. This helps to reduce the complexity of the Python devicetree script `gen_defines.py` and ensures that the devicetree source file used in Zephyr is at least still compatible with the original specification.
+
+The `devicetree_generated.h` header file replaces the devicetree blob `dtb`: It is included by the drivers and our application and thereby strips all unnecessary or unused parts. **"Macrobatics"** is the term that Martì Bolivar used in his [talk about the Zephyr devicetree in the June 2022 developer summit][zephyr-summit-22-devicetree], and it fits. Even for our tiny application, the generated header is over 15000 lines of code! We'll see later how these macros are used by the Zephyr API and drivers. If you're curious, have a look at `zephyr/include/zephyr/devicetree.h`, for now, let's have a glimpse:
+
+```c
+#define DT_CHOSEN_zephyr_console DT_N_S_soc_S_uart_40002000
+// --snip---
+#define DT_N_S_soc_S_uart_40002000_P_current_speed 115200
+#define DT_N_S_soc_S_uart_40002000_P_status "okay"
+```
+
+Looks cryptic? With just a few hints, this becomes much more readable. Know that:
+- `DT_` is a common prefix for devicetree macros,
+- `_S_` is simply a forward slash `/`,
+- `_N_` refers to a _node_,
+- `_P_` is a _property_.
+
+Thus, e.g., `DT_N_S_soc_S_uart_40002000_P_current_speed` simply refers to the _property_ `current_speed` of the _node_ `/soc/uart_40002000`. In Zephyr, this configuration value is set during _compile time_. You'll need to recompile your application in case you want to change this property. The approach in Linux would be different: There, the (UART speed) property is read from the devicetree blob `dtb` during runtime. You could change the property, recompile the devicetree and would not need to touch your application or the Kernel.
+
+But let's leave it at that for now, we'll have a proper look at this later. For now, it is just important to know that we'll resolve our devicetree at _compile time_ using generated macros.
+
+Finally, the generated `dts.cmake` is a file that basically allows to access the entire devicetree also from within CMake, using CMake target properties, e.g., we'll find the _current speed_ of our UART peripheral also within CMake:
+
+`dts.cmake`
+```cmake
+set_target_properties(
+    devicetree_target
+    PROPERTIES
+    "DT_PROP|/soc/uart@40002000|current-speed" "115200"
+)
+```
+
+That's it for our build. Let's wrap it up:
+- Zephyr uses a so called devicetree to describe the hardware.
+- Most of the devicetree sources are already available within Zephyr.
+- We'll use devicetree mostly to override or extend existing DTS files.
+- In Zephyr, the devicetree is resolved at _compile time_, using [macrobatics][zephyr-summit-22-devicetree].
+
+
+## Devicetree basics
+
+Now we finally take a closer look at the devicetree syntax and its files. We'll walk through it by creating a devicetree "snippet" and using a real-world reference. This section heavily borrows from existing documentation such as the [devicetree specification][devicetree-spec], [Zephyr's devicetree docs][zephyr-devicetree] and the [nRF Connect SDK Fundamentals lesson on devicetree][nordicsemi-academy-devicetree].
+
+### Source file syntax
+
+Let's start from scratch. We create an empty devicetree source file `.dts` with the following empty tree:
+
+```dts
+/dts-v1/;
+/ { };
+```
+
+#### Node names, unit-addresses, `reg` and labels
+
+The first line contains the _tag_ `/dts-v1/;` identifies the file as a version _1_ devicetree source file. Without this tag, the devicetree compiler would treat the file as being of the obsolete version _0_ - which is incompatible with the current major devicetree version _1_. The tag `/dts-v1/;` is therefore required when working with Zephyr. Following the version tag is an empty devicetree: It's only _node_ is the _root node_, identified by convention by a forward slash `/`.
+
+Within this root node, we can now define our own nodes in the form of a tree, kind of like a `JSON` object or nested `C` structure:
+
+```dts
+/dts-v1/;
+/ {
+  node {
+    subnode {
+      /* name/value properties */
+    };
+  };
+};
+```
+
+Nodes are identified via their _node name_. Each node can have _subnodes_ and _properties_. In the above example, we have node with the name _node_, containing a subnode named _subnode_. For now, all you need to know about _properties_ is that they are name/value pairs.
+
+A node in the devicetree can be uniquely identified by specifying the full _path_ from the root node, through all subnodes, to the desired node, separated by forward slashes. E.g., our full path to our _subnode_ is `/node/subnode`.
+
+Node names can also have and an optional, hexadecimal _unit-address_, specified using an `@` and thus resulting in a full node name `node-name@unit-address`. E.g., we could give our `subnode` the _unit-address_ `0123ABC` as follows:
+
+```dts
+/dts-v1/;
+/ {
+  node {
+    subnode@0123ABC {
+      reg = <0x0123ABC>;
+      /* properties */
+    };
+  };
+};
+```
+
+The _unit-address_ can be used to distinguish between several subnodes of the same type. It can be a real register address, typically a base address, e.g., the base address of the register space of a specific UART interface, but also a plain instance number, you when describing a multi-core MCU by using a `/cpus` node, with two instances `cpu@0` and `cpu@1` for each CPU core.
+
+The fact that the _unit-address_ is also used for the register address of a device is also the reason why each node with a _unit-address_ **must** have the property `reg` - and any node _without_ a _unit-address_ must _not_ have the property `reg`. While we don't know anything about the exact syntax of the property and its value yet, clearly seems redundant redundant in the above example. In a real devicetree, however, the `reg` property usually provides more information and can therefore be seen as a more detailed view of the addressable resources within a node.
+
+Let's finish up on the node name with a convention that ensures, that each node in the devicetree can be uniquely identified by specifying its full _path_. For any node name and property at the same level in the tree:
+- in the case of _node-name_ without an _unit-address_ the _node-name_ should be unique,
+- or if a node has a _unit-address_, then the full `node-name@unit-address` should be unique.
+
+Now we can address all of our nodes using their full path. As you might imagine, within a more complex devicetree the paths become quite long, and if you'd ever need to reference a node this is quite tedious, which is why any node can be assigned a unique _node label_:
+
+```dts
+/dts-v1/;
+/ {
+  node {
+    subnode_label: subnode@0123ABC {
+      reg = <0x0123ABC>;
+      /* properties */
+    };
+  };
+};
+```
+
+Now, instead of using `/node/subnode@0123ABC` to identify a node, we can simply use the label `subnode_label` - which must be **unique** throughout the entire devicetree. We'll see later how labels come in handy when dealing with devicetree _overlays_.
+
+Before we have a better look at properties and thus really know why `reg` is defined the way it is, let's see how nodes look like in a real devicetree source (_include_) file in Zephyr. This is a reduced excerpt of the devicetree source of the nRF52840 microcontroller:
+
+`zephyr/dts/arm/nordic/nrf52840.dtsi`
+```dts
+/ {
+  soc {
+		uart0: uart@40002000 {
+			reg = <0x40002000 0x1000>;
+		};
+		uart1: uart@40028000 {
+			reg = <0x40028000 0x1000>;
+		};
+  };
+};
+```
+
+The System-On-Chip is described using the `soc` node. The `soc` node contains two _uart_ instances, which match the UARTE instances that we can find in the register map of the nRF52840 datasheet (the `E` in UARTE refers to _EasyDMA_ support):
+
+|  ID   | Base address | Peripheral | Instance | Description                                                      |
+| :---: | :----------: | :--------: | :------: | :--------------------------------------------------------------- |
+|   0   |  0x40000000  |   CLOCK    |  CLOCK   | Clock control                                                    |
+|       |     ...      |            |          |                                                                  |
+|   2   |  0x40002000  |   UARTE    |  UARTE0  | Universal asynchronous receiver/transmitter with EasyDMA, unit 0 |
+|   3   |  0x40003000  |    SPIM    |  SPIM0   | SPI master 0                                                     |
+|       |     ...      |            |          |                                                                  |
+|  40   |  0x40028000  |   UARTE    |  UARTE1  | Universal asynchronous receiver/transmitter with EasyDMA, unit 1 |
+|  41   |  0x40029000  |    QSPI    |   QSPI   | External memory interface                                        |
+|       |     ...      |            |          |                                                                  |
+
+The _unit-address_ of each `uart` node matches its base address. The `reg` property seems to be some kind of value list enclosed in angle brackets `<...>`. The first value of the property matches the _unit-address_ and thus the base address of the UARTE instance, but the property also has a second value and thus provides more information than the _unit-address_ itself: Looking at the register map we can see that the second value `0x1000` matches the lengths of the address space that is reserved for each UARTE instance:
+
+- The base address of the `UARTE0` instance is `0x40002000`, followed by `SPIM0` at `0x40003000`.
+- The base address of the `UARTE1` instance is `0x40028000`, followed by `QSPI` at `0x40029000`.
+
+Finally, each UART instance also has a unique label:
+- `uart0` is the label of the node `/soc/uart@40002000`,
+- `uart0` is the label of the node `/soc/uart@40028000`.
+
+#### Properties, `compatible` and bindings
+
+Let's now have a look at properties and their value definitions. We'll try to find out how properties are defined and how to assign their values, and, more importantly, finding out what properties a node can actually have in the first place.
+
+#### Aliases and chosen nodes
+
+```dts
+/dts-v1/;
+/ {
+  chosen {
+  };
+  aliases {
+  };
+};
+```
+
+Predefined nodes
+`/cpus`, `/memory`
+
+Nexus
+The `#<specifier>-cells` property defines the number of cells required to encode a specifier for a domain.
+
+Standard properties
+
+* `phandle` is not really used when writing source files, it is only generated by the compiler.willnotcontainexplicitphandleproperties.TheDTCtoolautomatically inserts the phandle properties when the DTS is compiled into the binary DTB format.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+It is a _tree_
+
+In contrast to Kconfig, Device Tree does not come with Zephyr but must be installed separately. So it is an external tool, a _compiler_
+
+Like `Kconfig`, Device Tree is well established in the Linux kernel
+Devicetree nodes are matched to bindings using their compatible properties.
+
+binding, your driver C file can then use the devicetree API to find status = "okay" nodes with the desired compatible, and
+
+"struct device" !! this is what it actually translates to. macrobatics is used for resolving the name to an instance.
+https://docs.zephyrproject.org/latest/build/dts/howtos.html#write-device-drivers-using-devicetree-apis
+
+Zephyr devicetree bindings are YAML files in a custom format (Zephyr does not use the dt-schema tools used by the Linux kernel).
+
+construct called a devicetree to describe system hardware
+point out similarity to JSON for tree
+
+---
+
+describes system hardware, thus the starting point is our hardware (board). conveniently, zephyr comes with a "description" of the nordic development kit (and an ever growing number of countless other devices)
+nrf52840dk_nrf52840.dts
+
+devicetree sources and devicetree bindings (.yml)
+one is the model, the other "the devicetree" itself
+"the devicetree" describes the hardware based on the model (bindings), and its initial configuration
+
+to some degree similar to Kconfig, where the .conf files contain actual values, and the `Kconfig` files the model
+
+[TODO:][zephyr-devicetree-input-and-output]
+
+
+* sources (.dts)
+* includes (.dtsi)
+* overlays (.overlay)
+* bindings (.yaml)
+
+only .yaml == bindings, rest is devicetree, just placed into different files that are used by the build process
+
+by example UART:
+previously known baudrate configuration, so where did that come from?
+
+
+
+
+BNF
+`zephyr/doc/build/dts/macros.bnf`
+```
+DT_N_<node path>_P_<property name>
+
+path
+; - each slash (/) to _S_
+; - all letters to lowercase
+; - non-alphanumerics characters to underscores
+
+property-ID
+; - all letters to lowercase
+; - non-alphanumeric characters to underscores
+e.g., zephyr,console -> zephyr_console
+
+```
+
+TODO: explore, delete `zephyr,console` from chosen nodes of the board, how does it fail?
+how to find what "chosen" must/should be set?
+https://docs.zephyrproject.org/latest/build/dts/api/api.html#zephyr-specific-chosen-nodes
+
+### File types
+
+`.yaml`
+`.dts`
+`.dtsi`
+`-pinctrl.dtsi`
+`-qiaa.dtsi`
+
+## Devicetree and Zephyr, take two
+
+### Macrobatics
+
+analyzing the macros: `_S_` is just a replacement for a forward slash `/`.
+
+### The `_dt` API
+
+### pinctrl ???
+
+### Important properties such as status "okay"
+
+
+analyze previous logging example in depth.
+
+TODO: try to analyze UART since it also is a `chosen` node
+
+TODO: instead of button, use uart overlay, and use button as pinctrl example.
+
+## Summary
+
+## Further reading
+
+[nordicsemi]: https://www.nordicsemi.com/
+[nordicsemi-academy-devicetree]: https://academy.nordicsemi.com/topic/devicetree/
+[rpi-devicetree]: https://www.raspberrypi.com/documentation/computers/configuration.html#device-trees-overlays-and-parameters
+[devicetree]: https://www.devicetree.org/
+[devicetree-spec]: https://www.devicetree.org/specifications/
+[linaro-devicetree]: https://www.linaro.org/blog/introducing-devicetree-org/
+[zephyr-kconfig]: https://docs.zephyrproject.org/latest/build/kconfig/index.html#configuration-system-kconfig
+[zephyr-devicetree]: https://docs.zephyrproject.org/latest/build/dts/index.html
+[zephyr-devicetree-howto]: https://docs.zephyrproject.org/latest/build/dts/howtos.html
+[zephyr-devicetree-bindings]: https://docs.zephyrproject.org/latest/build/dts/api/bindings.html
+[zephyr-devicetree-input-and-output]: https://docs.zephyrproject.org/latest/build/dts/intro-input-output.html
+[zephyr-summit-22-devicetree]: https://www.youtube.com/watch?v=w8GgP3h0M8M&list=PLzRQULb6-ipFDwFONbHu-Qb305hJR7ICe
+
+basic logging
+
+
+
+bindings: gpio
+zephyr/dts/bindings/gpio/nordic,nrf-gpio.yaml
+    zephyr/dts/bindings/gpio/gpio-controller.yaml
+    zephyr/dts/bindings/base/base.yaml
+
+KConfig
+no spaces around the equals sign
+application inherits the board configuration file, <board_name>_defconfig, of the board
+
+build/zephyr/.config
+west build --board nrf52840dk_nrf52840 -d ../build -t menuconfig

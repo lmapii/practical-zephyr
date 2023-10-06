@@ -2,6 +2,7 @@
 Logging as demo for Kconfig
 
 - [Goals](#goals)
+- [Prerequisites](#prerequisites)
 - [Getting started using `printk`](#getting-started-using-printk)
 - [Kconfig](#kconfig)
   - [Configuring symbols](#configuring-symbols)
@@ -28,6 +29,11 @@ In this section, we'll explore the [Kconfig configuration system][zephyr-kconfig
 
 TODO: Kconfig == Kernel configuration.
 
+## Prerequisites
+
+Zephyr installed, follow previous chapter? Kconfig comes "preinstalled" as python script
+zephyr/scripts/kconfig/kconfig.py
+
 ## Getting started using `printk`
 
 Go ahead and create a new, empty project, e.g., using the empty application from the [previous section](../00_empty/readme.md).
@@ -41,7 +47,7 @@ $ tree --charset=utf-8 --dirsfirst
 └── prj.conf
 ```
 
-The simplest way to log text in Zephyr is the `printk` function. The `printk` also takes multiple arguments and format strings, but that's not what we want to show here, so we'll just modify the `main` functino to output the string _"Message in a bottle."_ each time it is called.
+The simplest way to log text in Zephyr is the `printk` function. The `printk` also takes multiple arguments and format strings, but that's not what we want to show here, so we'll just modify the `main` function to output the string _"Message in a bottle."_ each time it is called.
 
 ```c
 #include <zephyr/kernel.h>
@@ -413,6 +419,8 @@ $ west build --board nrf52840dk_nrf52840 -d ../build -- -DCONF_FILE=prj_release.
 ```
 
 If you scroll through the output of the `west build` command, you'll notice that `Kconfig` will now merge `prj_release.conf` into our final configuration:
+
+TODO: its actually a python script invoked via the CMake extension, show.
 
 ```
 Parsing /opt/nordic/ncs/v2.4.0/zephyr/Kconfig
@@ -899,7 +907,9 @@ In this chapter we've explored the _kernel configuration system_ `Kconfig` in gr
 - how to define application specific `Kconfig` symbols, and
 - how the build system and the application uses `Kconfig` symbols.
 
+Recap: Kconfig is not "manually" explored, too many files
 
+TODO: creating your own Kconfig will be much more important in case you're building your own device drivers
 
 ## Further reading
 
