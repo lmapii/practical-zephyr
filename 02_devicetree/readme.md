@@ -204,15 +204,15 @@ For each included file, each device tree source file can reference or overwrite 
 `nrf52840dk_nrf52840.dts`
 ```dts
 / {
-	chosen {
-		zephyr,console = &uart0;
-	};
+  chosen {
+    zephyr,console = &uart0;
+  };
 };
 
 &uart0 {
-	compatible = "nordic,nrf-uarte";
-	status = "okay";
-	current-speed = <115200>;
+  compatible = "nordic,nrf-uarte";
+  status = "okay";
+  current-speed = <115200>;
 };
 ```
 
@@ -373,12 +373,12 @@ Before we have a better look at properties and thus really know why `reg` is def
 ```dts
 / {
   soc {
-		uart0: uart@40002000 {
-			reg = <0x40002000 0x1000>;
-		};
-		uart1: uart@40028000 {
-			reg = <0x40028000 0x1000>;
-		};
+    uart0: uart@40002000 {
+      reg = <0x40002000 0x1000>;
+    };
+    uart1: uart@40028000 {
+      reg = <0x40028000 0x1000>;
+    };
   };
 };
 ```
