@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
+description: Custom properties
+
+# not using "custom,props-basics" since the vendor "custom" doesn't exist in the vendor-prefixes.txt
+compatible: "custom-props-basics"
+
+properties:
+
+  nonexistent-boolean:
+    type: boolean
+
+  existent-boolean:
+    type: boolean
+
+  int:
+    type: int
+    const: 1
+
+  array:
+    type: array
+
+  uint8-array:
+    type: uint8-array
+
+  string:
+    type: string
+    const: "foo"
+
+  string-array:
+    type: string-array
+    const: ['foo', 'bar', 'baz']

@@ -1,0 +1,28 @@
+/ {
+  label_a: node_a {
+    compatible = "custom-cells-a";
+    #phandle-array-of-ref-cells = <2>; // redundant due to binding giving the names
+  };
+  label_b: node_b {
+    compatible = "custom-cells-b";
+    #phandle-array-of-ref-cells = <1>;
+  };
+  node_refs {
+    compatible = "custom-props-phandles";
+
+    path-by-path = &{/node_a};
+    path-by-label = &label_a;
+
+    phandle-by-path = <&{/node_a}>;
+    phandle-by-label = <&label_a>;
+
+    phandles = <&{/node_a}>, <&label_b>;
+    phandle-array-of-refs = <&{/node_a} 1 2>, <&label_b 1>;
+  };
+
+  node_refs_equivalents {
+    compatible = "custom-props-phandles";
+    phandles = <&{/node_a} &label_b>;
+    phandle-array-of-refs = <&{/node_a} 1 2 &label_b 1>;
+  };
+};

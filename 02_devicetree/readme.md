@@ -42,6 +42,8 @@ TODO: Knowledge of `Kconfig` is assumed, Zephyr installed. If not, follow along 
 
 TODO: must know how to draft a zephyr freestanding application
 
+TODO: accompanying repository, build root outside of application root.
+
 
 ## What's a `devicetree`?
 
@@ -201,9 +203,9 @@ The included C/C++ header files `.h` simply leverage the fact that Zephyr uses t
 
 This type of include graph is very common for devicetrees in Zephyr: You start with your _board_, which uses a specific _MCU_, which has a certan _architecture_ and vendor specific peripherals.
 
-For each included file, each device tree source file can reference or overwrite properties and nodes. E.g., for our console output we can find the following parts (the below snippets are incomplete!) in the device tree source file of the development kit:
+For each included file, each devicetree source file can reference or overwrite properties and nodes. E.g., for our console output we can find the following parts (the below snippets are incomplete!) in the devicetree source file of the development kit:
 
-`nrf52840dk_nrf52840.dts`
+`zephyr/boards/arm/nrf52840dk_nrf52840/nrf52840dk_nrf52840.dts`
 ```dts
 / {
   chosen {
@@ -215,6 +217,7 @@ For each included file, each device tree source file can reference or overwrite 
   compatible = "nordic,nrf-uarte";
   status = "okay";
   current-speed = <115200>;
+  /* other properties */
 };
 ```
 
@@ -222,7 +225,7 @@ With `zephyr,console` we seem to be able to tell Zephyr that we want it to use t
 
 The `uart0` node is in turn defined in the included devicetree source file of the SoC `nrf52840.dtsi`, and seems to be disabled by default.
 
-`nrf52840.dtsi`
+`zephyr/dts/arm/nordic/nrf52840.dtsi`
 ```dts
 / {
   soc {
@@ -373,7 +376,7 @@ Now we can address all of our nodes using their full path. As you might imagine,
 };
 ```
 
-Now, instead of using `/node/subnode@0123ABC` to identify a node, we can simply use the label `subnode_label` - which must be **unique** throughout the entire devicetree. We'll see later how labels come in handy when dealing with devicetree _overlays_.
+Now, instead of using `/node/subnode@0123ABC` to identify a node, we can simply use the label `subnode_label` - which must be **unique** throughout the entire devicetree. We'll go into details about labels and their use in a later section, for now it is enough to know that we can use _node labels_ as a shorthand for a node's full path.
 
 Before we have a better look at properties and thus really know why `reg` is defined the way it is, let's see how nodes look like in a real devicetree source (_include_) file in Zephyr. This is a reduced excerpt of the devicetree source of the nRF52840 microcontroller:
 
@@ -464,13 +467,16 @@ TODO: use the same format as rpi? looks nicer ...
 
 - A `boolean` property is `true` if the property exists, otherwise `false`.
 - `arrays` could contain elements of any supported type. In practice and in Zephyr, however, an `array` is essentially always a list of 32-bit integers: Just like in `C/C++`, the prefix `0x` is used for hexadecimals, and numbers _without_ a prefix are decimals. The `&gpio` in the example is a _reference_. _References_ are replaced by the referenced node's `phandle` - a fancy word for a 32-bit unique number - and thus still count as integer. We'll see the details a bit later.
+
+TODO: an array can also be specified using `<>,<>,<>` and that is actually used for phandle arrays. It simply allows to group values, but has no effect.
+
 - An `int`eger is represented as an `array` containing a single 32-bit value ("cell").
 - Just like specified for the type `<u64>` in the [DTSpec][devicetree-spec], 64-bit integers do not have their own type, but are instead represented by an array of two `int`egers.
 - In contrast to an `array`, a `uint8-array` _always_ uses **hexadecimal** literals _without_ the prefix `0x` - which can be confusing at first. E.g., `<11 12>` represents the two _32-bit_ integers with the decimal values `11` and `12`, whereas `[11, 12]` represents the two _8-bit_ integers with the decimal values `17` and `18`.
 - The spaces between each byte in a `uint8-array` are optional. E.g., `mac-address = [ DEADBEEF1234 ];` is equivalent to `mac-address = [ DE AD BE EF 12 34 ];`. It practice, you'll rarely see `uint8-array`s without spaces between each byte.
 - A `string-array` is just a list of strings. The only thing worth mentioning is, that the value of a `string-array` property may also be a single `string`. E.g., `compatible = "something"` is still a valid value assignment for a `string-array`.
 
-The `compound` type is essentially a "catch-all" for custom types. Zephyr does **not** generate any macros for `compound` properties. Also, notice how value definitions are syntactically ambiguous, e.g., for `foo = <1 2>, "three", "four"`: Is `"three", "four"` a single value of type `string-array`, or two separate `string` values? Not that it makes much of a difference...
+The `compound` type is essentially a "catch-all" for custom types. Zephyr does **not** generate any macros for `compound` properties. Also, notice how compound value definitions are syntactically ambiguous, e.g., for `foo = <1 2>, "three", "four"`: Is `"three", "four"` a single value of type `string-array`, or two separate `string` values?
 
 When reading Zephyr DTS files, keep in mind that [in Zephyr all DTS files are fed into the preprocessor](#devicetree-includes-and-sources-in-zephyr) and therefore Zephyr allows using macros in DTS files. E.g., you might encounter properties like `max-frequency = <DT_FREQ_M(8)>;`, which do not match the devicetree syntax at all. There, the preprocessor replaces the macro `DT_FREQ_M` with the corresponding literal before the source file is parsed.
 
@@ -492,11 +498,163 @@ The following is a snippet of a test file of Zephyr's Python devicetree generato
 };
 ```
 
-TODO: labels within properties are allowed, also in zephyr?
+There's one more thing that is worth mentioning: Parentheses, arithmetic operators, and bitwise operators are allowed in property values, though the entire expression must be parenthesized. [Zephyr's introduction on property values][zephyr-dts-intro-property-values] provides the following example for a property `bar`:
 
-TODO: one last thing: operations within properties are allowed.
+```dts
+/ {
+  foo {
+    bar = <(2 * (1 << 5))>;
+  };
+};
+```
+
+The property `bar` contains a single 32-bit value ("cell") with the value _64_. Notice that operators not just allowed in Zephr, but also according to the [devicetree specification][devicetree-spec]: You don't _need_ to use macros for simple arithmetic or bit operations operations.
 
 #### References and `phandle`s
+
+We've already seen how we can create _node labels_ as shorthand form of a node's full path, but haven't really seen how such labels are used within the devicetree. Tired of all the theory? I thought so. Now that we're familiar with a good part of the devicetree source file syntax, it is time for some hands-on and dive back into the command line.
+
+We'll practice using a devicetree _overlay_ file. In a later section, we'll go into more details about what an overlay is. For now, it is enough to know that an overlay file is simply an additional DTS file on top of the hierarchy of files that is included starting with the board's devicetree source file. We can [specify an extra devicetree overlay file using the CMake variable `EXTRA_DTC_OVERLAY_FILE`][zephyr-dts-overlays], and we'll use a newly created `props-phandles.overlay` file for that:
+
+```bash
+$ mkdir -p dts/playground
+$ touch dts/playground/props-phandles.overlay
+$ rm -rf ../build
+$ west build --board nrf52840dk_nrf52840 --build-dir ../build -- \
+  -DEXTRA_DTC_OVERLAY_FILE=dts/playground/props-phandles.overlay
+```
+
+So what is a `phandle`? The short answer is: A unique reference to a node as 32-bit value. The more complicated answer is: The term `phandle` is ambiguous.
+
+- In Zephyr, the term `phandle` is used pretty much only for node references (in any format).
+- In the [devicetree specification][devicetree-spec], we've seen that `<phandle>` is a base type.
+- In addition, `phandle` is also a standard (predefined) _property_ in devicetree - ironically of type `<u32>`, and not `<phandle>`.
+
+
+
+
+
+
+
+
+
+
+
+
+Old fashioned way, example extend.
+But as promised, we'll explore this using an example.
+
+```dts
+```
+
+
+
+
+
+The build system's output now lists the newly created devicetree overlay in the configuration phase, like this:
+
+```
+-- Found Dtc: /opt/nordic/ncs/toolchains/4ef6631da0/bin/dtc (found suitable version "1.6.1", minimum required is "1.4.6")
+-- Found BOARD.dts: /opt/nordic/ncs/v2.4.0/zephyr/boards/arm/nrf52840dk_nrf52840/nrf52840dk_nrf52840.dts
+-- Found devicetree overlay: playground/test.overlay
+-- Generated zephyr.dts: /path/to/build/zephyr/zephyr.dts
+```
+
+
+
+
+
+
+`<phandle>` type, A `<u32>` value used to reference another node in the devicetree.
+
+`phandle` is also a standard property defined by the DTSpec, and funnily enough it has the type `<u32>`
+
+The phandle property specifies a numerical identifier for a node that is unique within the devicetree. The phandle property value is used by other nodes that need to refer to the node associated with the property.
+
+MostdevicetreesinDTS(seeAppendixA)willnotcontainexplicitphandleproperties.TheDTCtoolautomatically inserts the phandle properties when the DTS is compiled into the binary DTB format.
+
+Phandle and path references can be automatically generated by referencing a label instead of explicitly specifying a phandle value or the full path to a node. Labels are only used in the devicetree source format and are not encoded into the DTB binary.
+
+Zephyr doesn't forbid specifying a phandle (!) explicitly, try it out!
+
+DTSpec v1 format: Labels are created by appending a colon (‘:’) to the label name. References are created by prefixing the label name with an ampersand (’&’).
+
+Labels are only used in the devicetree source format and are not encoded into the DTB binary.
+similarly, the phandle is not accessible in the Zephyr API but generates tokens.
+
+
+
+
+
+
+
+
+`phandle` is a data type, a property and is usually also used interchangeably with references.
+
+
+ [devicetree includes and sources](#devicetree-includes-and-sources-in-zephyr)
+
+
+`zephyr/boards/arm/nrf52840dk_nrf52840/nrf52840dk_nrf52840.dts`
+```dts
+&uart0 {
+  compatible = "nordic,nrf-uarte";
+  status = "okay";
+  current-speed = <115200>;
+  /* other properties */
+};
+```
+
+`zephyr/dts/arm/nordic/nrf52840.dtsi`
+```dts
+/ {
+  soc {
+    uart0: uart@40002000 {
+      compatible = "nordic,nrf-uarte";
+      reg = <0x40002000 0x1000>;
+      interrupts = <2 NRF_DEFAULT_IRQ_PRIORITY>;
+      status = "disabled";
+    };
+  };
+};
+```
+
+`build/zephyr.dts`
+
+
+The generated output for the Zephyr API we'll analyze in details [Devicetree and Zephyr, take two](#devicetree-and-zephyr-take-two)
+
+TODO: labels within properties are allowed, but useless? does Zephyr generate a macro for it?
+
+
+
+
+
+
+
+
+Zephyr uses `&label` as `phandle`, though `phandle` is actually a devicetree property.
+
+Property values refer to other nodes in the devicetree by their phandles. You
+foo: device@0 { };
+device@1 {
+        sibling = <&foo 1 2>;
+};
+
+In the devicetree, a phandle value is a cell – which again is just a 32-bit unsigned int. However, the Zephyr devicetree API generally exposes these values as node identifiers.
+
+[Zephyr phandles][zephyr-dts-phandles]
+
+
+
+
+
+
+
+
+
+
+
 
 TODO: continue here
 
@@ -532,6 +690,11 @@ Outside a cell array, a reference to another node will be expanded to that node�
 
 #### `compatible`, bindings and other standard properties
 
+Bindings: Without it, zephyr doesn't generate anything
+[where are bindings found][zephyr-dts-bindings-location]
+
+Bindings: in theory a node describes what it needs, but even without a binding
+we get some output. Therefore, the syntax actually already defines the type !!!
 
 Finally, we're able to identify the types of all properties of Nordic's `uart0` node:
 
@@ -775,6 +938,9 @@ TODO: instead of button, use uart overlay, and use button as pinctrl example.
 [zephyr-dts-intro-bindings-properties]: https://docs.zephyrproject.org/latest/build/dts/intro-syntax-structure.html#properties
 [zephyr-dts-intro-input-and-output]: https://docs.zephyrproject.org/latest/build/dts/intro-input-output.html
 [zephyr-dts-intro-property-values]: https://docs.zephyrproject.org/latest/build/dts/intro-syntax-structure.html#writing-property-values
+[zephyr-dts-phandles]: https://docs.zephyrproject.org/latest/build/dts/phandles.html
+[zephyr-dts-overlays]: https://docs.zephyrproject.org/latest/build/dts/howtos.html#set-devicetree-overlays
+[zephyr-dts-bindings-location]: https://docs.zephyrproject.org/latest/build/dts/bindings-intro.html#where-bindings-are-located
 [zephyr-summit-22-devicetree]: https://www.youtube.com/watch?v=w8GgP3h0M8M&list=PLzRQULb6-ipFDwFONbHu-Qb305hJR7ICe
 
 basic logging

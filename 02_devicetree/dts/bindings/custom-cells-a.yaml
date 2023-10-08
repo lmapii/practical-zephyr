@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
+description: Dummy for matching "cells"
+
+compatible: "custom-cells-a"
+
+# This list serves as names for the cells.
+# The values of the cells can then be retrieved using the devicetree API, by cell name.
+phandle-array-of-ref-cells:
+  - name-of-cell-one
+  - name-of-cell-two
