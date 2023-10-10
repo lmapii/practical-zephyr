@@ -1,7 +1,12 @@
+/* The DTS file version is **not** specified in an overlay file! */
+// /dts-v1/;
+
 / {
   label_a: node_a {
     compatible = "custom-cells-a";
-    #phandle-array-of-ref-cells = <2>; // redundant due to binding giving the names
+    // The value assignment for the cells is redundant in Zephyr, since
+    // the binding already specifies all names and thus the size.
+    #phandle-array-of-ref-cells = <2>;
   };
   label_b: node_b {
     compatible = "custom-cells-b";
@@ -16,13 +21,20 @@
     phandle-by-path = <&{/node_a}>;
     phandle-by-label = <&label_a>;
 
-    phandles = <&{/node_a}>, <&label_b>;
-    phandle-array-of-refs = <&{/node_a} 1 2>, <&label_b 1>;
+    // Simple array of phandles
+    phandles = <&{/node_a} &label_b>;
+    // Array of phandles _with metadata_
+    phandle-array-of-refs = <&{/node_a} 1 2 &label_b 1>;
   };
 
   node_refs_equivalents {
     compatible = "custom-props-phandles";
-    phandles = <&{/node_a} &label_b>;
-    phandle-array-of-refs = <&{/node_a} 1 2 &label_b 1>;
+    phandles = <&{/node_a}>, <&label_b>;
+    phandle-array-of-refs = <&{/node_a} 1>, <2 &label_b 3>;
+  };
+  node_with_phandle {
+    // It is allowed to explicitly provide the phandle's value, but the
+    // DTS generator does this for us.
+    phandle = <0xC0FFEE>;
   };
 };
