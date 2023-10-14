@@ -1,0 +1,16 @@
+/ {
+  node_with_props {
+    compatible = "custom-props-basics";
+    existent-boolean;
+    int = <1>;
+    array = <1 2 3>;
+    uint8-array = [ 12 34 ];
+    string = "foo";
+    string-array = "foo", "bar", "baz";
+  };
+  node_with_equivalent_array {
+    compatible = "custom-props-basics";
+    uint8-array = [ 1234 ];
+    array = <1>, <2>, <3>;
+  };
+};

@@ -14,7 +14,12 @@
   - [`path`, `phandles` and `phandle-array`](#path-phandles-and-phandle-array)
     - [Syntax and semantics for `phandle-array`s](#syntax-and-semantics-for-phandle-arrays)
     - [`phandle-array` in practice](#phandle-array-in-practice)
-- [The complete list of Zephyr's property types](#the-complete-list-of-zephyrs-property-types)
+- [A complete list of Zephyr's property types](#a-complete-list-of-zephyrs-property-types)
+- [About `/aliases`, `/chosen`, and skeletons](#about-aliases-chosen-and-skeletons)
+  - [`/aliases`](#aliases)
+  - [`/chosen`](#chosen)
+  - [Zephyr's DTS skeleton](#zephyrs-dts-skeleton)
+- [Complete examples and alternative array syntax](#complete-examples-and-alternative-array-syntax)
 - [Summary](#summary)
 - [Further reading](#further-reading)
 
@@ -412,6 +417,19 @@ Finally, each UART instance also has a unique label:
 - `uart0` is the label of the node `/soc/uart@40002000`,
 - `uart0` is the label of the node `/soc/uart@40028000`.
 
+Throughout this chapter, we've sometimes refered to _node_ labels as just "labels". The [devicetree specification][devicetree-spec], however, allows labels to be placed also at other locations, e.g., in front of property values. The following is an example where we create a label for the second entry in an `array` value, and for a `string` value:
+
+```dts
+/ {
+  some_node {
+    array = <1 array_idx_one: 2 3>;
+    string = foo_value: "foo";
+  };
+};
+```
+
+Zephyr's DTS generator accepts this input and won't complain about the additional labels. It will not, however, ignore such labels and therefore you can't use such labels in your application. We'll therefore use the term _label_ and _node label_ interchangeably.
+
 ### Property names and basic value types
 
 Let's now have a look at properties. As we've already seen for the property `reg`, properties consist of a _name_ and a _value_, and are used to describe the characteristics of the node. Property names can contain:
@@ -657,7 +675,7 @@ In Zephyr, however, an array containing a **single** node reference has its own 
 
 Let's go through the remaining types one by one, starting with `path`s: In our previous example, we've enclosed the references in `<` and `>` and ended up with our `phandle` type. If we don't place the reference within `<` and `>`, the [DTSpec][devicetree-spec] defines the following behavior:
 
-> "Outside a cell array, a reference to another node will be expanded to that node’s full path."
+> "Outside a cell array, a reference to another node will be expanded to that node's full path."
 
 So let's try this out: Let's first get rid of the properties `phandle-by-path` and `phandle-by-label`, and create two new properties `path-by-path` and `path-by-label` as follows:
 
@@ -690,7 +708,7 @@ If we now execute `west build`, we can see something interesting in our generate
 
 The `phandle` property for `node_a` is gone! The reason for this is simple - and also matches exactly what is stated in the [DTSpec][devicetree-spec]: The references used for the values of the properties `path-by-path` and `path-by-label` are really just a different notation for the path `/node_a`. They are **not** `phandle`s.
 
-In Zephyr, you'll encounter `path`s almost exclusively in the standard properties `/aliases` and `/chosen`, both of which we'll see in a [later section](#aliases-and-chosen-nodes).
+In Zephyr, you'll encounter `path`s almost exclusively for properties of the standard nodes `/aliases` and `/chosen`, both of which we'll see in a [later section](#about-aliases-chosen-and-skeletons).
 
 Next, `phandles`. This is not a typo: The plural form `phandles` of `phandle` is really a separate type in Zephyr, and it is as simple as it sounds: Instead of supporting only a single _reference_ - or _phandle_ - in its value, it is an array of _phandles_. Let's create another `node_b` and add the property `phandles` to `node_refs`:
 
@@ -777,22 +795,22 @@ Before we look at a real-world example of a `phandle-array`, let's sum up `phand
 
 #### Syntax and semantics for `phandle-array`s
 
-In case you've been experimenting with the above overlay, you may have noticed that I've been cheating you a bit: You could actually delete the `#phandle-array-of-ref-cells` properties, and also give `phandle-array-of-refs` a different name that does _not_ end in an _s_, and the overlay will still _compile_ just fine.
+In case you've been experimenting with the above overlay, you may have noticed that I've been cheating you a little: The project still _compiles_ just fine even if you delete the `#phandle-array-of-ref-cells` properties, or give `phandle-array-of-refs` a different name that does _not_ end in an _s_.
 
-Our devicetree is still _syntactically_ correct even if we do not follow the above convention. In the end, `phandle-array-of-refs` is simply an array of cells since every reference is expanded to the `phandle`'s value. A _syntactically_ sound devicetree, however, is only half the job: Eventually, we'll have to define some _schema_ and _meaning_ to all the properties that we define; we'll have to define the devicetree's **semantics**.
+Why? Our devicetree is still _syntactically_ correct even if we do not follow the given convention. In the end, `phandle-array-of-refs` is simply an array of cells since every reference is expanded to the `phandle`'s value - even without the expansion, its syntax would still fit a `<prop-encoded-array`. A _syntactically_ sound devicetree, however, is only half the job: Eventually, we'll have to define some _schema_ and add _meaning_ to all the properties and their values; we'll have to define the devicetree's **semantics**.
 
 Without semantics, the DTS generator can't make sense of the provided devicetree and therefore also won't generate anything that you'd be able to use in your application. Once you add semantics to your nodes, you'll have to strictly follow the previous convention, which is also why I've already included it in this chapter. The details, however, we'll explore in the next chapter about devicetree _semantics_.
 
 #### `phandle-array` in practice
 
-How are `phandle-array`s used in practice? Let's look at the nRF52840's General Purpose input and outputs (GPIOs). In the datasheet we can find the following table on the GPIO instances:
+How are `phandle-array`s used in practice? Let's look at the nRF52840's _General Purpose input and outputs (GPIOs)_. In the datasheet, we can find the following table on the GPIO instances:
 
 | Base address | Peripheral | Instance | Description  | Configuration  |
 | :----------: | :--------: | :------: | :----------- | :------------- |
 |  0x50000000  |    GPIO    |    P0    | GPIO, port 0 | P0.00 to P0.31 |
 |  0x50000300  |    GPIO    |    P1    | GPIO, port 1 | P1.00 to P1.15 |
 
-Thus, the nRF52840 uses two instances of the GPIO peripheral to expose control over its GPIOs. In the nRF52840 DTS include file, we find the matching nodes `gpio0` for port _0_ and `gpio1` for port _1_:
+Thus, the nRF52840 uses two instances `P0` and `P1` of the GPIO peripheral to expose control over its GPIOs. In the nRF52840 DTS include file, we find the matching nodes `gpio0` for port _0_ and `gpio1` for port _1_:
 
 `zephyr/dts/arm/nordic/nrf52840.dtsi`
 ```dts
@@ -820,9 +838,9 @@ Thus, the nRF52840 uses two instances of the GPIO peripheral to expose control o
 };
 ```
 
-You'll immediately notice that we're not able to use a reference to a single node in case we want to control only one pin: We always have to choose either `gpio0` or `gpio1` _and_ tell it which exact pin we need. Let's see how this is solved in the nRF52840 development kit's devicetree file.
+You'll immediately notice that we're not able to use a reference to a single node in case we want to control only one pin: We always have to choose either `gpio0` or `gpio1` _and_ tell it which exact _pin_ of the _port_ we need. Let's see how this is solved in the nRF52840 development kit's devicetree file.
 
-The nRF52840 development kit has LEDs, which are described using the node `leds` in the board's DTS file. Within this devicetree, we now see how the `led` instances reference to the nRF52840's GPIOs: E.g., `gpio0` is used in `led0`'s property `gpios` using a `phandle-array`:
+The nRF52840 development kit connects LEDs to the nRF52840 MCU, which are described using the node `leds` in the board's DTS file. Within this devicetree, we now see how the `led` instances reference to the nRF52840's GPIOs: E.g., `gpio0` is used in `led0`'s property `gpios` using a `phandle-array`:
 
 `zephyr/boards/arm/nrf52840dk_nrf52840/nrf52840dk_nrf52840.dts`
 ```dts
@@ -837,16 +855,15 @@ The nRF52840 development kit has LEDs, which are described using the node `leds`
 };
 ```
 
-There are no individual nodes for each pin, therefore, when referencing the `gpio0` node, we need to be able to tell exactly which pin we're using for our LED. In addition, we also might need to provide some configuration for our pin, e.g., set the pin to active low. Now, how would we know that `13` is the pin number and `GPIO_ACTIVE_LOW` are the flags?
+There are no individual nodes for each pin, therefore, when referencing the `gpio0` node, we need to be able to tell exactly which pin we're using for our LED. In addition, we also typically need to provide some configuration for our pin, e.g., set the pin to _active low_. Now, how would we know that `13` is the pin number and `GPIO_ACTIVE_LOW` are the flags?
 
-Well, as we've seen before, without additional information all that the DTS compiler can do is make sure the _syntax_ of your file is correct. It does not know anything about the **semantics** and therefore can't really associate the values in the `phandle-array` to `gpio0`. It therefore also doesn't care about any semantic requirements.
+Well, as we've seen before, without additional information all that the DTS compiler can do is make sure the _syntax_ of your file is correct. It doesn't know anything about the **semantics** and therefore can't really associate the values in the `phandle-array` to `gpio0`. It therefore also doesn't care about any semantic requirements.
 
-TODO: But how do we add semantics to our DTS files? Using the property `compatible` and so called **bindings**.
-TODO: Before we look into devicetree semantics, let's wrap up the types.
+In the next chapter, we'll see how to use the standard property `compatible` and so called **bindings** to provide the semantics.
 
-## The complete list of Zephyr's property types
+## A complete list of Zephyr's property types
 
-TODO: here
+Having explored `phandle` types and `paths`, we can complete the list of types that are used in Zephyr devicetrees. You can find the same information in [Zephyr's documentation on bindings][zephyr-dts-bindings-types] and [Zephyr's how-to on property values][zephyr-dts-intro-property-values].
 
 | Zephyr type     | DTSpec equivalent                      | Syntax                                                                                                  | Example                                            |
 | :-------------- | :------------------------------------- | :------------------------------------------------------------------------------------------------------ | :------------------------------------------------- |
@@ -863,15 +880,262 @@ TODO: here
 | `phandle-array` | `<prop-encoded-array>`                 | An array containing references and cells                                                                | `gpios = <&gpio0 13 GPIO_ACTIVE_LOW>;`             |
 | `compound`      | "comma-separated components"           | comma-separated values                                                                                  | `foo = <1 2>, [3, 4], "five"`                      |
 
-TODO: complete examples
-TODO: alternative syntax
+It is again worth mentioning that the `compound` type is only a "catch-all" for custom types. Zephyr does **not** generate any macros for `compound` properties.
+
+
+## About `/aliases`, `/chosen`, and skeletons
+
+Before we wrap up on the devicetree syntax, there are two standard _nodes_ that we need to mention: `aliases` and `chosen`. We'll see them again in the semantics chapter, but since they are quite prominent in Zephyr's DTS files, we can't just leave them aside for now.
+
+### `/aliases`
+
+Let's have a look at `/aliases` first. The [DTSpec][devicetree-spec] specifies that the `/aliases` node is a child node of the root node. The following is specified for its properties:
+
+> Each property of the `/aliases` node defines an alias. The property _name_ specifies the _alias name_. The property _value_ specifies the _full **path** to a node in the devicetree_. [DTSpec][devicetree-spec]
+
+Simply put, `/aliases` are just yet another way to get the full path to nodes _in your application_. In the [previous section](#path-phandles-and-phandle-array) we've learned that outside of `<` and `>` a reference to another node is expanded to that node's full path. Thus, for any alias we can specify its **`path` value** using references or a plain string, as shown in the example below:
+
+```dts
+/ {
+  aliases {
+    alias-by-label = &label_a;
+    alias-by-path = &{/node_a};
+    alias-as-string = "/node_a";
+  };
+  label_a: node_a {
+    /* Empty. */
+  };
+};
+```
+
+So what's the point of having an alias? Can't we just use labels instead? Well, yes - but also no. As mentioned, _for the application_ there is no real difference between referring to a node via its label, its full path - or using its alias. We'll learn about the devicetree API in Zephyr in the next chapter; for now, know that there are three macros `DT_ALIAS`, `DT_LABEL`, and `DT_PATH` in `zephyr/include/zephyr/devicetree.h` that you can use to get a node identifier.
+
+Why the emphasis on _the application_ and what exactly doesn't work? It's important to know that `/aliases` is just another node with properties that are compiled accordingly. You can**not** use aliases in the devicetree itself like you can do with _labels_. Thus, you can't replace an occurrence of a label by its alias. E.g., the following does not compile:
+
+```dts
+/ {
+  aliases {
+    alias-by-label = &label_a;
+  };
+  label_a: node_a {
+    /* Empty. */
+  };
+  node_ref {
+    // This doesn't work. An alias cannot be used like labels.
+    phandle-by-alias = <&alias-by-label>;
+  };
+};
+```
+
+You might still not be convinced why you'd need an _alias_, so let's have a look at how they are used in Zephyr's DTS files. Say, we want to build an application that reads the state of a button. If we look at the nRF52840 development kit, we find the following nodes for the board's buttons:
+
+`zephyr/boards/arm/nrf52840dk_nrf52840/nrf52840dk_nrf52840.dts`
+```dts
+/ {
+  buttons {
+    compatible = "gpio-keys";
+    button0: button_0 { /* ... */ };
+    button1: button_1 { /* ... */ };
+    button2: button_2 { /* ... */ };
+    button3: button_3 { /* ... */ };
+  };
+};
+```
+
+In our application, we could refer to `button_0` via its full path `/buttons/button_0`, or using its label `button0`. Let's say we want to run the same application on a different board, e.g., STM's Nucleo-C031C6. After all, Zephyr's promise is that this should be easily doable, right? Let's have a look at its board's DTS file:
+
+`zephyr/boards/arm/nucleo_c031c6/nucleo_c031c6.dts`
+```dts
+/ {
+  gpio_keys {
+    compatible = "gpio-keys";
+    user_button: button { /* ... */ };
+  };
+};
+```
+
+So, our STM board has only one button, and for that board it has the label `user_button`. Notice that this is a perfectly fine label for the only available button on the board. However, if we'd like to use this button in our application, we'd now have to change our sources - or even worse - adapt the DTS files. Instead of doing this, we can use aliases - and since buttons are commonly used throughout Zephyr's example applications, the corresponding aliases already exist:
+
+`zephyr/boards/arm/nrf52840dk_nrf52840/nrf52840dk_nrf52840.dts`
+```dts
+/ {
+  aliases {
+    led0 = &led0;
+    /* ... */
+    pwm-led0 = &pwm_led0;
+    sw0 = &button0;
+    /* ... */
+  };
+};
+```
+
+`zephyr/boards/arm/nucleo_c031c6/nucleo_c031c6.dts`
+```dts
+/ {
+  aliases {
+    led0 = &green_led_4;
+    pwm-led0 = &green_pwm_led;
+    sw0 = &user_button;
+    /* ... */
+  };
+};
+```
+
+> **Note:** In case the aliases wouldn't exist in the board DTS files, you could use overlay files - just like we already did in our examples. We'll explore this in detail in the next chapter.
+
+As you can see, there are also other examples where labels are not consistent. Instead, aliases are used. We could change our application to get the node using the commonly available alias `sw0`, and it'll work with both boards.
+
+### `/chosen`
+
+Now what about the `/chosen` node? If you've been following along, or if you've just had another look at the DTS file of the nRF52840 development kit, then you might find that some of the `/chosen` nodes look an aweful lot like what you find in `/aliases`, just with a different property name format:
+
+`zephyr/boards/arm/nrf52840dk_nrf52840/nrf52840dk_nrf52840.dts`
+```dts
+/ {
+	chosen {
+		zephyr,console = &uart0;
+		zephyr,shell-uart = &uart0;
+		zephyr,uart-mcumgr = &uart0;
+		zephyr,bt-mon-uart = &uart0;
+		zephyr,bt-c2h-uart = &uart0;
+		zephyr,sram = &sram0;
+		zephyr,flash = &flash0;
+		zephyr,code-partition = &slot0_partition;
+		zephyr,ieee802154 = &ieee802154;
+	};
+};
+```
+
+So what's the difference to a property in `/aliases`? Let's first look at the definition of the `/chosen` node in the [DTSpec][devicetree-spec]:
+
+> The `/chosen` node does not represent a real device in the system but describes parameters chosen or specified by the
+system firmware at run time. It shall be a child of the root node. [DTSpec][devicetree-spec]
+
+The first sentence can be a bit misleading: It doesn't mean that we cannot refer to real devices using `/chosen` properties, it simply means that a device defined as a `/chosen` property; it is always a _reference_. Thus, in short, `/chosen` contains a list of _system parameters_.
+
+According to the [DTSpec][devicetree-spec], technically, `/chosen` properties are not restricted to the `path` type. The following are acceptable `/chosen` properties according to the specification, and Zephyr's DTS generator does indeed accept it as input:
+
+```dts
+/ {
+  chosen {
+    chosen-by-label = &label_a;
+    chosen-by-path = &{/node_a};
+    chosen-as-string = "/node_a";
+    chosen-foo = "bar";
+    chosen-bar = <0xF00>;
+    chosen-invalid = "/invalid/path/is/a/string";
+	};
+  label_a: node_a {
+    /* Empty. */
+  };
+};
+```
+
+At the time of writing, Zephyr uses `/chosen` properties exclusively for reference other _nodes_ and therefore the `/chosen` node only contains properties of the type `path`. Also, the `DT_CHOSEN` macro provided by `zephyr/include/zephyr/devicetree.h` is only used to retrieve node identifiers. You can find a list of all Zephyr-specific `/chosen` nodes [in the official documentation][zephyr-dts-api-chosen].
+
+So when would you use `/aliases` and when `/chosen` properties? If you want to specify a _node_ that is independent of the nodes in a devicetree, you should use an _alias_ rather than a chosen property. `/chosen` is used to specify global configuration options and properties that affect the system as a whole.
+
+In case you're building an application framework around Zephyr, you could also use `/chosen` properties for your own global configuration options. For simpler applications, you'll typically use `/aliases`. Think twice in case you're considering adding properties to `/chosen` that are **not nodes**: [Kconfig][zephyr-kconfig] is probably better suited for that.
+
+### Zephyr's DTS skeleton
+
+[Devicetree includes and sources in Zephyr](#devicetree-includes-and-sources-in-zephyr)
+
+`zephyr/dts/common/skeleton.dtsi`
+```dts
+/ {
+  #address-cells = <1>;
+  #size-cells = <1>;
+  chosen { };
+  aliases { };
+};
+```
+
+
+The #address-cells and #size-cells properties may be used in any device node that has children in the devicetree hierarchy and describes how child device nodes should be addressed. The #address-cells property defines the number of <u32> cells used to encode the address field in a child node’s reg property. The #size-cells property defines the number of <u32> cells used to encode the size field in a child node’s reg property.
+The #address-cells and #size-cells properties are not inherited from ancestors in the devicetree. They shall be explicitly defined.
+A DTSpec-compliant boot program shall supply #address-cells and #size-cells on all nodes that have children. If missing, a client program should assume a default value of 2 for #address-cells, and a value of 1 for #size-
+cells.
+
+
+
+
+
+## Complete examples and alternative array syntax
+
+`props-basics.overlay`
+```dts
+/ {
+  node_with_props {
+    existent-boolean;
+    int = <1>;
+    array = <1 2 3>;
+    uint8-array = [ 12 34 ];
+    string = "foo";
+    string-array = "foo", "bar", "baz";
+  };
+  node_with_equivalent_arrays {
+    uint8-array = [ 1234 ];
+    array = <1>, <2>, <3>;
+  };
+};
+
+&{/node_with_equivalent_arrays} {
+  int = <2>;
+};
+```
+
 TODO: extending nodes
 
+`props-phandles.overlay`
+```dts
+/ {
+  label_a: node_a {
+    #phandle-array-of-ref-cells = <2>;
+  };
+  label_b: node_b {
+    #phandle-array-of-ref-cells = <1>;
+  };
+  node_refs {
+    // Properties of type `path`
+    path-by-path = &{/node_a};
+    path-by-label = &label_a;
 
+    // Properties of type `phandle`
+    phandle-by-path = <&{/node_a}>;
+    phandle-by-label = <&label_a>;
 
+    // Array of phandle, type `phandles`
+    phandles = <&{/node_a} &label_b>;
+    // Array of phandles _with metadata_, type `phandle-array`
+    phandle-array-of-refs = <&{/node_a} 1 2 &label_b 1>;
+  };
+
+  node_refs_equivalents {
+    phandles = <&{/node_a}>, <&label_b>;
+    phandle-array-of-refs = <&{/node_a} 1>, <2 &label_b 3>;
+  };
+  node_with_phandle {
+    // It is allowed to explicitly provide the phandle's value, but the
+    // DTS generator does this for us.
+    phandle = <0xC0FFEE>;
+  };
+};
+
+```
+
+```bash
+$ west build --board nrf52840dk_nrf52840 --build-dir ../build -- \
+  -DEXTRA_DTC_OVERLAY_FILE="dts/playground/props-basics.overlay;dts/playground/props-phandles.overlay"
+```
+
+TODO: alternative syntax
+TODO: complete examples
 
 
 ## Summary
+
+TODO: Zephyr specific devicetree stuff (`/chosen` are all nodes, `#include`, compile-time devicetree)
 
 ## Further reading
 
@@ -893,4 +1157,8 @@ TODO: extending nodes
 [zephyr-dts-overlays]: https://docs.zephyrproject.org/latest/build/dts/howtos.html#set-devicetree-overlays
 [zephyr-dts-bindings-location]: https://docs.zephyrproject.org/latest/build/dts/bindings-intro.html#where-bindings-are-located
 [zephr-dts-bindings-specifier-cells]: https://docs.zephyrproject.org/latest/build/dts/bindings-syntax.html#specifier-cell-names-cells
+[zephyr-dts-api-chosen]: https://docs.zephyrproject.org/latest/build/dts/api/api.html#devicetree-chosen-nodes
+[zephyr-kconfig]: https://docs.zephyrproject.org/latest/build/kconfig/index.html#configuration-system-kconfig
 [zephyr-summit-22-devicetree]: https://www.youtube.com/watch?v=w8GgP3h0M8M&list=PLzRQULb6-ipFDwFONbHu-Qb305hJR7ICe
+
+TODO: https://elinux.org/Device_Tree_Mysteries

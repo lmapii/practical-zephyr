@@ -1,6 +1,36 @@
+/* The DTS file version is **not** specified in an overlay file! */
+// /dts-v1/;
+
 / {
+  aliases {
+    // `aliases` is a standard child-node of the root node defined by the DTSpec.
+    // Aliases cannot be used as references in the devicetree itself, but are
+    // used within the applicaiton as an alternative name for a node.
+    alias-by-label = &label_equivalent;
+    alias-by-path = &{/node_with_equivalent_arrays};
+    alias-as-string = "/node_with_equivalent_arrays";
+    // The DTS generator or compiler checks properties and makes sure that the given
+    // values are valid paths. E.g., the following would not compile since the node
+    // "invalid" does not exist:
+    // alias-foo = "/invalid";
+  };
+
+  chosen {
+    // `chosen` is yet another standard child-node of the root node defined by the DTSpec.
+    // It describes parameters "chosen" or specified by the application. Such parameters
+    // can be paths to nodes, e.g., for `zephyr,parameters` such as `zephyr,console`, but
+    // also any other property and value.
+    chosen-by-label = &label_equivalent;
+    chosen-by-path = &{/node_with_equivalent_arrays};
+    chosen-as-string = "/node_with_equivalent_arrays";
+    // `chosen` properties can have any valid type, but in Zephyr they are typically only
+    // used to reference nodes (see also, the DT_CHOSEN macro). Other options are more
+    // commonly specified using Kconfig.
+    chosen-foo = "bar";
+    chosen-bar = <0xF00>;
+  };
+
   node_with_props {
-    compatible = "custom-props-basics";
     existent-boolean;
     int = <1>;
     array = <1 2 3>;
@@ -8,9 +38,24 @@
     string = "foo";
     string-array = "foo", "bar", "baz";
   };
-  node_with_equivalent_array {
-    compatible = "custom-props-basics";
+  label_equivalent: node_with_equivalent_arrays {
+    // No spaces needed for uint8-array values.
     uint8-array = [ 1234 ];
+    // Alternative syntax for arrays.
     array = <1>, <2>, <3>;
   };
+};
+
+// It is not possible to refer to a node via its alias - aliases are just properties!
+// &alias-by-label {... };
+
+// It is possible to "extend" (non-const) properties to a node using
+// its full path or its label. This adds the value _2_ for the `int` property
+// to the existing node "/node_with_equivalent_arrays".
+&{/node_with_equivalent_arrays} {
+  int = <2>;
+};
+// The same can be done using labels.
+&label_equivalent {
+  string = "bar";
 };
