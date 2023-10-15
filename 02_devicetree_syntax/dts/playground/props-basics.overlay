@@ -43,15 +43,16 @@
     uint8-array = [ 1234 ];
     // Alternative syntax for arrays.
     array = <1>, <2>, <3>;
+    int = <1>;
   };
 };
 
 // It is not possible to refer to a node via its alias - aliases are just properties!
 // &alias-by-label {... };
 
-// It is possible to "extend" (non-const) properties to a node using
-// its full path or its label. This adds the value _2_ for the `int` property
-// to the existing node "/node_with_equivalent_arrays".
+// It is possible to "extend" and overwrite (non-const) properties of a node using
+// its full path or its label. This overwrites the `int` property's value with _2_
+// for the existing node "/node_with_equivalent_arrays".
 &{/node_with_equivalent_arrays} {
   int = <2>;
 };
