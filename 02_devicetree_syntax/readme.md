@@ -1041,9 +1041,11 @@ At the time of writing, Zephyr uses `/chosen` properties exclusively for referen
 
 So when would you use `/aliases` and when `/chosen` properties? If you want to specify a _node_ that is independent of the nodes in a devicetree, you should use an _alias_ rather than a chosen property. `/chosen` is used to specify global configuration options and properties that affect the system as a whole.
 
-In case you're building an application framework around Zephyr, you could also use `/chosen` properties for your own global configuration options. For simpler applications, you'll typically use `/aliases`. Think twice in case you're considering adding properties to `/chosen` that are **not nodes**: [Kconfig][zephyr-kconfig] is probably better suited for that.
+In case you're building an application framework around Zephyr, you could also use `/chosen` properties for your own global configuration options. For simpler applications, you'll typically use `/aliases`. Think twice in case you're considering adding properties to `/chosen` that are **not nodes**: [Kconfig][zephyr-kconfig] is probably better suited for that. Zephyr's official documentation has a dedicated page on [Devicetree vs. Kconfig][zephyr-dt-vs-kconfig], check it out!
 
 ## Complete examples and alternative array syntax
+
+TODO: link to this reference project.
 
 Along with [the complete list of Zephyr's property types](#a-complete-list-of-zephyrs-property-types), we can now create two overlay files as complete examples for basic types, `phandle`s, `/aliases` and `/chosen` nodes.
 
@@ -1082,25 +1084,51 @@ Along with [the complete list of Zephyr's property types](#a-complete-list-of-ze
     uint8-array = [ 1234 ];
     // Alternative syntax for arrays.
     array = <1>, <2>, <3>;
+    int = <1>;
   };
 };
 
 // It is not possible to refer to a node via its alias - aliases are just properties!
 // &alias-by-label {... };
 
-// It is possible to "extend" (non-const) properties to a node using
-// its full path or its label. This adds the value _2_ for the `int` property
-// to the existing node "/node_with_equivalent_arrays".
+// It is possible to "extend" and overwrite (non-const) properties of a node using
+// its full path or its label.
 &{/node_with_equivalent_arrays} {
   int = <2>;
 };
-// The same can be done using labels.
 &label_equivalent {
   string = "bar";
+```
+
+There are two things that we have already seen but haven't explicitly mentioned throughout this chapter: We can use node references outside the root node to define additional properties, and we can use a different syntax for specifying array values.
+
+In the above example, the property `int` of the node `/node_with_equivalent_arrays` is overwritten with the value _2_, and a value `"bar"` is added to the node using its label `label_equivalent`.
+
+In addition, we see that we don't have to provide all values of an `array` within a single set of `<..>`, but can instead separate them via comments. We also see the alternative syntax for `uint8-arrays`. In the semantics chapter, we'll see that the output is indeed the same, for now you have to trust me on this.
+
+The following is the generated output for the two nodes `/node_with_props` and `/node_with_equivalent_arrays`:
+
+`/build/zephyr/zephyr.dts`
+```
+/{
+  node_with_props {
+    existent-boolean;
+    int = < 0x1 >;
+    array = < 0x1 0x2 0x3 >;
+    uint8-array = [ 12 34 ];
+    string = "foo";
+    string-array = "foo", "bar", "baz";
+  };
+  label_equivalent: node_with_equivalent_arrays {
+    uint8-array = [ 12 34 ];
+    array = < 0x1 >, < 0x2 >, < 0x3 >;
+    int = < 0x2 >;
+    string = "bar";
+  };
 };
 ```
 
-TODO: extending nodes
+The second overlay file shows the use of `path`s, `phandle`, `phandle`s and `phandle-array`, including the alternative array syntax that we've seen before. Here, for the property `phandle-array-of-refs`, you can see how this syntax can sometimes result in a more readable devicetree source file.
 
 `dts/playground/props-phandles.overlay`
 ```dts
@@ -1141,15 +1169,12 @@ TODO: extending nodes
 };
 ```
 
+You can add those files to your own sources and provide both files using the `EXTRA_DTC_OVERLAY_FILE` option by separating the paths using a semicolon:
+
 ```bash
 $ west build --board nrf52840dk_nrf52840 --build-dir ../build -- \
   -DEXTRA_DTC_OVERLAY_FILE="dts/playground/props-basics.overlay;dts/playground/props-phandles.overlay"
 ```
-
-TODO: alternative syntax
-TODO: complete examples
-
-
 
 ## Zephyr's DTS skeleton and addressing
 
@@ -1310,6 +1335,7 @@ TODO: Zephyr specific devicetree stuff (`/chosen` are all nodes, `#include`, com
 [zephr-dts-bindings-specifier-cells]: https://docs.zephyrproject.org/latest/build/dts/bindings-syntax.html#specifier-cell-names-cells
 [zephyr-dts-api-chosen]: https://docs.zephyrproject.org/latest/build/dts/api/api.html#devicetree-chosen-nodes
 [zephyr-kconfig]: https://docs.zephyrproject.org/latest/build/kconfig/index.html#configuration-system-kconfig
+[zephyr-dt-vs-kconfig]: https://docs.zephyrproject.org/latest/build/dts/dt-vs-kconfig.html
 [zephyr-summit-22-devicetree]: https://www.youtube.com/watch?v=w8GgP3h0M8M&list=PLzRQULb6-ipFDwFONbHu-Qb305hJR7ICe
 <!-- [zephyr-thingy53]: https://docs.zephyrproject.org/latest/boards/arm/thingy53_nrf5340/doc/index.html -->
 
