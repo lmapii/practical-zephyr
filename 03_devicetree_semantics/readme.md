@@ -4,9 +4,11 @@
 - [Warm-up](#warm-up)
 - [Devicetree overlays](#devicetree-overlays)
   - [Automatic overlays](#automatic-overlays)
-  - [Files by example](#files-by-example)
+  - [Overlays by example](#overlays-by-example)
 - [Towards bindings](#towards-bindings)
   - [Extending the example application](#extending-the-example-application)
+  - [Understanding devicetree macro names](#understanding-devicetree-macro-names)
+  - [`compatible`](#compatible)
 - [](#)
 - [Zephyr's devicetree API](#zephyrs-devicetree-api)
 - [Summary](#summary)
@@ -20,8 +22,9 @@ TODO: rename to devicetree_bindings?
 
 This builds up on devicetree basics
 
-<!-- TODO: or "easy pieces" -->
 ## Warm-up
+
+<!-- TODO: name "easy pieces" ? -->
 
 Before we get started, let's quickly review what we've seen when we had a look at the UART nodes of the [nRF52840 Development Kit from Nordic][nordicsemi]. We're using the same old freestanding application with an empty `prj.conf`, and the following file tree:
 
@@ -107,7 +110,7 @@ On top of the _overlay_ files that have or haven't been discovered by the build 
 
 The important thing to remember is, that the devicetree overlay files that have been detected _last_ have the _highest_ precedence, since they may overwrite anything of the previously added overlay files. The precedence is always visible in the build output, where Zephr lists all overlay files using the output `Found devicetree overlay: <name>.overlay` in the order that they are detected and thus added. The precedence _increases_ with the given list.
 
-### Files by example
+### Overlays by example
 
 Let's try and visualize this list using an imaginary filetree and board "dummy_board". I've annotated the files with precedence numbers, even though obviously not all files will be used by the build:
 
@@ -168,6 +171,155 @@ The overlay files would thus be added as follows and with _increasing_ precedenc
 Now that we finally know what _overlays_ are and how we can use them in our build, let's find out what Zephyr produces for our own overlays in its `devicetree_generated.h` file.
 
 ### Extending the example application
+
+We start by creating our own overlay file `dts/playground/props-basics.overlay`:
+
+```bash
+$ tree --charset=utf-8 --dirsfirst.
+├── dts
+│   └── playground
+│       └── props-basics.overlay
+├── src
+│   └── main.c
+├── CMakeLists.txt
+└── prj.conf
+```
+
+In the development kit's devicetree source file `nrf52840dk_nrf52840.dts`, the `&uart0` node has two properties: A property `current-speed` of type `int`, and the property `status` of type `string`. We've seen that Zephyr creates some output in `devicetree_generated.h` just fine, let's try the same with our own custom node:
+
+`dts/playground/props-basics.overlay`
+```dts
+/ {
+  node_with_props {
+    int = <1>;
+    string = "foo";
+  };
+};
+```
+
+When running a build whilst specifying the path to the overlay using the CMake variable `EXTRA_DTC_OVERLAY_FILE`, we can verify that the overlay is indeed picked up by the build system, since it informs us about the overlays it found using the output `Found devicetree overlay`:
+
+```bash
+$ west build --board nrf52840dk_nrf52840 --build-dir ../build -- \
+  -DEXTRA_DTC_OVERLAY_FILE="dts/playground/props-basics.overlay"
+```
+```
+-- Found Dtc: /opt/nordic/ncs/toolchains/4ef6631da0/bin/dtc (found suitable version "1.6.1", minimum required is "1.4.6")
+-- Found BOARD.dts: /opt/nordic/ncs/v2.4.0/zephyr/boards/arm/nrf52840dk_nrf52840/nrf52840dk_nrf52840.dts
+-- Found devicetree overlay: dts/playground/props-basics.overlay
+-- Generated zephyr.dts: /path/to/build/zephyr/zephyr.dts
+-- Generated devicetree_generated.h: /path/to/build/zephyr/include/generated/devicetree_generated.h
+-- Including generated dts.cmake file: /path/to/build/zephyr/dts.cmake
+```
+
+Checking the output file `build/zephyr/zephyr.dts` we also see that our `node_with_props` can be found in the devicetree that Zephyr is using as input for `devicetree_generated.h`:
+
+`build/zephyr/zephyr.dts`
+```dts
+/{
+  /* ... */
+  node_with_props {
+    int = < 0x1 >;
+    string = "foo";
+  };
+};
+```
+
+However, trying to find `foo` within `devicetree_generated.h` yields no results! Did we miss something? One thing we can check, is that the `devicetree_generated.h` really contains our node. This is easy to verify, since we can just search using the node's full path `/node_with_props`. You should find a large comment, separating the macros generated for our node, containing a list of definitions:
+
+`build/zephyr/include/generated/devicetree_generated.h`
+```c
+/*
+ * Devicetree node: /node_with_props
+ *
+ * Node identifier: DT_N_S_node_with_props
+ */
+
+/* Node's full path: */
+#define DT_N_S_node_with_props_PATH "/node_with_props"
+// ---snip ---
+/* (No generic property macros) */
+```
+
+The omitted lines contain lots of generic macros of our node. Don't worry, we'll skim through these soon enough. However, we won't find anything that is even remotely related to the two properties that we defined for our node. In fact, the comment _"(No generic property macros)"_ seems to hint that no properties could be found for `/node_with_props`.
+
+### Understanding devicetree macro names
+
+Before we dig deeper, let's try to gain a better understanding of the macro names in `devicetree_generated.h`. Once we understand that, we should be able to know which exact macro Zephyr should generate for our node's properties.
+
+In Zephyr's `doc` folder, you can find the _"RFC 7405 ABNF grammar for devicetree macros"_ `zephyr/doc/build/dts/macros.bnf`. This RFC describes the macros that are directly generated out of the devicetree. In simple words, the following rules apply:
+
+- `DT_` is the common prefix for devicetree macros,
+- `_S_` is a forward slash `/`,
+- `_N_` refers to a _node_,
+- `_P_` is a _property_,
+- all letters are converted to lowercase,
+- and non-alphanumerics characters are converted to underscores "`_`"
+
+Let's look at the same old `uart@40002000` node, specified in the nRF52840's DTS file, and modified by the nRF52840 development kit's DTS file:
+
+`zephyr/dts/arm/nordic/nrf52840.dtsi`
+```dts
+/ {
+  soc {
+    uart0: uart@40002000 {
+      reg = <0x40002000 0x1000>;
+    };
+  };
+};
+```
+
+`zephyr/boards/arm/nrf52840dk_nrf52840/nrf52840dk_nrf52840.dts`
+```dts
+&uart0 {
+  compatible = "nordic,nrf-uarte";
+  status = "okay";
+  current-speed = <115200>;
+  /* other properties */
+};
+```
+
+Following the previous rules, we can transform the paths and property names:
+- The node path `/soc/uart@40002000` is transformed to `_S_soc_S_uart_40002000`.
+- The property name `current-speed` is transformed to `current_speed`.
+- The property name `status` remains the same.
+
+Since node paths are unique, by combining the node's path with its property names we can create a unique macro for each property - and that's exactly what the devicetree generator does. The leading `_N_` is used to indicate that it is followed by a node's path, `_P_` separates the node's path from its property. For our two properties, we get the following:
+
+- `/soc/uart@40002000`, property `current-speed`
+  becomes `N_S_soc_S_uart_40002000_P_current_speed`
+- `/soc/uart@40002000`, property `status`
+  becomes `N_S_soc_S_uart_40002000_P_status`
+
+Adding the `DT_` prefix, we indeed end up with the generated names:
+
+`build/zephyr/include/generated/devicetree_generated.h`
+```c
+#define DT_N_S_soc_S_uart_40002000_P_current_speed 115200
+#define DT_N_S_soc_S_uart_40002000_P_status "okay"
+```
+
+For our little demo overlay we can do the same:
+
+`dts/playground/props-basics.overlay`
+```dts
+/ {
+  node_with_props {
+    int = <1>;
+    string = "foo";
+  };
+};
+```
+
+For `/node_with_props`' properties, the generator should create the following macros:
+- `DT_N_S_node_with_props_P_int` for the property `int`,
+- `DT_N_S_node_with_props_P_string` for the property `string`.
+
+Thus, in our `devicetree_generated.h` we should be able to find the above macros - but we don't. Something's still missing.
+
+### `compatible`
+
+TODO: continue here
 
 
 
