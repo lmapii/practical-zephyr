@@ -25,6 +25,8 @@
 
 ## Goals
 
+TODO: DT basics and syntax, with a little bit of semantics
+
 In the previous chapter, we've had a look at how to configure _software_, and we've silently assumed that there's a UART interface on our board that is configurable and used for logging.
 
 In this chapter, we'll see how we configure and _use_ our peripherals. For this, Zephyr borrows another tool from the Linux kernel: the **devicetree** compiler. Similar to what we've seen with `Kconfig`, the `devicetree` has been adapted to better fit the needs of Zephyr when comparing it to Linux. We'll have a short look at this as well.
@@ -94,7 +96,7 @@ In case you're looking for a more detailed description of the _DTS (Devicetree S
 
 ## Devicetree and Zephyr
 
-To get started, we create a new freestanding application with the files listed below. In case you're not familiar with the required files, the installation, or the build process, have a look at the [previous](../00_empty/readme.md) [chapters](../01_kconfig/readme.md) or the official documentation. As mentioned in the [pre-requisites](#prerequisites), you should be familiar with creating, building and running a Zephr application.
+To get started, we create a new freestanding application with the files listed below. In case you're not familiar with the required files, the installation, or the build process, have a look at the [previous](../00_basics/readme.md) [chapters](../01_kconfig/readme.md) or the official documentation. As mentioned in the [pre-requisites](#prerequisites), you should be familiar with creating, building and running a Zephr application.
 
 ```bash
 $ tree --charset=utf-8 --dirsfirst
@@ -127,7 +129,7 @@ As usual, we can now build this application for the development kit of choice, i
 $ west build --board nrf52840dk_nrf52840 --build-dir ../build
 ```
 
-But wait, we didn't "do anything devicetree" yet, did we? That's right, someone else already did it for us! After our [first look into Zephyr](../00_empty/readme.md) and after [exploring Kconfig](../01_kconfig/readme.md), we're familiar with the build output of our Zephyr application, so let's have a look! You should find a similar output right at the start of your build:
+But wait, we didn't "do anything devicetree" yet, did we? That's right, someone else already did it for us! After our [first look into Zephyr](../00_basics/readme.md) and after [exploring Kconfig](../01_kconfig/readme.md), we're familiar with the build output of our Zephyr application, so let's have a look! You should find a similar output right at the start of your build:
 
 ```
 -- Found Dtc: /opt/nordic/ncs/toolchains/4ef6631da0/bin/dtc (found suitable version "1.6.1", minimum required is "1.4.6")
@@ -270,6 +272,7 @@ As promised, the original devicetree `dtc` compiler _is_ invoked during the buil
 
 The `devicetree_generated.h` header file replaces the devicetree blob `dtb`: It is included by the drivers and our application and thereby strips all unnecessary or unused parts. **"Macrobatics"** is the term that Martì Bolivar used in his [talk about the Zephyr devicetree in the June 2022 developer summit][zephyr-summit-22-devicetree], and it fits. Even for our tiny application, the generated header is over 15000 lines of code! We'll see later how these macros are used by the Zephyr API and drivers. If you're curious, have a look at `zephyr/include/zephyr/devicetree.h`, for now, let's have a glimpse:
 
+`build/zephyr/include/generated/devicetree_generated.h`
 ```c
 #define DT_CHOSEN_zephyr_console DT_N_S_soc_S_uart_40002000
 // --snip---

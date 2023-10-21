@@ -36,7 +36,7 @@ zephyr/scripts/kconfig/kconfig.py
 
 ## Getting started using `printk`
 
-Go ahead and create a new, empty project, e.g., using the empty application from the [previous section](../00_empty/readme.md).
+Go ahead and create a new, empty project, e.g., using the empty application from the [previous section](../00_basics/readme.md).
 
 ```bash
 $ tree --charset=utf-8 --dirsfirst
@@ -65,7 +65,7 @@ void main(void)
 
 But where is this text going to?
 
-As mentioned in the [previous section](../00_empty/readme.md), in this guide we're using a development kit from [Nordic][nordicsemi]; in my case the [development kit for the nRF52840][nordicsemi-nrf52840-dk]. For most development kits the logging output is available via its UART interface and using the following settings:
+As mentioned in the [previous section](../00_basics/readme.md), in this guide we're using a development kit from [Nordic][nordicsemi]; in my case the [development kit for the nRF52840][nordicsemi-nrf52840-dk]. For most development kits the logging output is available via its UART interface and using the following settings:
 
 * Baud rate: _115200_
 * Data bits: _8_
@@ -96,7 +96,7 @@ Great! But what if we'd like to get rid of this feature entirely without changin
 
 ## Kconfig
 
-[So far](../00_empty/readme.md) we've seen that Zephyr uses [CMake][zephyr-cmake] as one of its [build and configuration systems][zephyr-build]. On top of CMake, Zephyr - just like the Linux kernel - uses the [Kconfig configuration system][zephyr-kconfig]. We've already encountered Kconfig in the [previous section](../00_empty/readme.md), where we had to provide the required _application configuration file_ [prj.conf](../00_empty/prj.conf).
+[So far](../00_basics/readme.md) we've seen that Zephyr uses [CMake][zephyr-cmake] as one of its [build and configuration systems][zephyr-build]. On top of CMake, Zephyr - just like the Linux kernel - uses the [Kconfig configuration system][zephyr-kconfig]. We've already encountered Kconfig in the [previous section](../00_basics/readme.md), where we had to provide the required _application configuration file_ [prj.conf](../00_basics/prj.conf).
 
 In this section we'll only explore the practical aspects of Kconfig. Details about Kconfig in Zephyr can be found in the [official documentation][zephyr-kconfig]. So, what is Kconfig?
 
@@ -114,13 +114,13 @@ config PRINTK
 	default y
 ```
 
-Unless configured otherwise, `PRINTK` is therefore *enabled* by default. We can configure symbols to our needs in the _application configuration file_ [prj.conf](../00_empty/prj.conf). Symbols are assigned their values using the following syntax. Notice that at the time of writing no spaces are allowed before or after the `=` operator:
+Unless configured otherwise, `PRINTK` is therefore *enabled* by default. We can configure symbols to our needs in the _application configuration file_ [prj.conf](../00_basics/prj.conf). Symbols are assigned their values using the following syntax. Notice that at the time of writing no spaces are allowed before or after the `=` operator:
 
 ```conf
 CONFIG_<symbol name>=<value>
 ```
 
-Our `PRINTK` is a symbol of type `bool` and can therefore be assigned the values `y` and `n` (have a look at the [official documentation][zephyr-kconfig-syntax] for details). To disable `PRINTK`, we can therefore add the following to our application configuration file [prj.conf](../00_empty/prj.conf):
+Our `PRINTK` is a symbol of type `bool` and can therefore be assigned the values `y` and `n` (have a look at the [official documentation][zephyr-kconfig-syntax] for details). To disable `PRINTK`, we can therefore add the following to our application configuration file [prj.conf](../00_basics/prj.conf):
 
 ```conf
 CONFIG_PRINTK=n
@@ -373,7 +373,7 @@ With this last tool to explore `Kconfig`, let's have a look at a couple of more 
 
 ## Using different configuration files
 
-Until now we've only used the _application configuration file_ [prj.conf](../00_empty/prj.conf) for setting `Kconfig` symbols. In addition to this configuration file, the Zephyr build system automatically picks up additional `Kconfig` _fragments_, if provided, and also allows explicitly specifying additional or alternative fragments.
+Until now we've only used the _application configuration file_ [prj.conf](../00_basics/prj.conf) for setting `Kconfig` symbols. In addition to this configuration file, the Zephyr build system automatically picks up additional `Kconfig` _fragments_, if provided, and also allows explicitly specifying additional or alternative fragments.
 
 We'll quickly glance through the most common practices here.
 
@@ -435,7 +435,7 @@ Thus, in short, Zephyr accepts build types by specifying an alternative `Kconfig
 
 ### Board-specific Kconfig fragments
 
-Aside from the application configuration file [prj.conf](../00_empty/prj.conf), Zephyr also automatically picks up board specific `Kconfig` fragments. Such fragments are placed in the `boards` directory in the project root (next to the `CMakeLists.txt` file) and use the `<board>.conf` name format.
+Aside from the application configuration file [prj.conf](../00_basics/prj.conf), Zephyr also automatically picks up board specific `Kconfig` fragments. Such fragments are placed in the `boards` directory in the project root (next to the `CMakeLists.txt` file) and use the `<board>.conf` name format.
 
 E.g., throughout this guide we're using the nRF52840 development kit which has the board name `nrf52840dk_nrf52840`. Thus, the file `boards/nrf52840dk_nrf52840.conf` will automatically merged into the `Kconfig` configuration during the build.
 

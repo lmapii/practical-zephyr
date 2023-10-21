@@ -8,9 +8,11 @@
 - [Towards bindings](#towards-bindings)
   - [Extending the example application](#extending-the-example-application)
   - [Understanding devicetree macro names](#understanding-devicetree-macro-names)
-  - [`compatible`](#compatible)
-- [](#)
+  - [Matching bindings using a node's `compatible` property](#matching-bindings-using-a-nodes-compatible-property)
 - [Zephyr's devicetree API](#zephyrs-devicetree-api)
+- [Practice run](#practice-run)
+  - [Remapping `uart0`](#remapping-uart0)
+  - [Switching boards](#switching-boards)
 - [Summary](#summary)
 - [Further reading](#further-reading)
 
@@ -225,7 +227,7 @@ Checking the output file `build/zephyr/zephyr.dts` we also see that our `node_wi
 };
 ```
 
-However, trying to find `foo` within `devicetree_generated.h` yields no results! Did we miss something? One thing we can check, is that the `devicetree_generated.h` really contains our node. This is easy to verify, since we can just search using the node's full path `/node_with_props`. You should find a large comment, separating the macros generated for our node, containing a list of definitions:
+However, trying to find `foo` within `devicetree_generated.h` yields no results! Did we miss something? One thing that is easy to check, is that the `devicetree_generated.h` contains our node: We can just search using the node's full path `/node_with_props`. You should find a large comment, separating the macros generated for our node, containing a list of definitions:
 
 `build/zephyr/include/generated/devicetree_generated.h`
 ```c
@@ -241,11 +243,11 @@ However, trying to find `foo` within `devicetree_generated.h` yields no results!
 /* (No generic property macros) */
 ```
 
-The omitted lines contain lots of generic macros of our node. Don't worry, we'll skim through these soon enough. However, we won't find anything that is even remotely related to the two properties that we defined for our node. In fact, the comment _"(No generic property macros)"_ seems to hint that no properties could be found for `/node_with_props`.
+The omitted lines contain lots of generic macros for our node. Don't worry, we'll skim through these soon enough. However, we won't find anything that is even remotely related to the two properties that we defined for our node. In fact, the comment _"(No generic property macros)"_ seems to hint that the generator did not encounter the properties `int` and `string` in our node `/node_with_props`.
 
 ### Understanding devicetree macro names
 
-Before we dig deeper, let's try to gain a better understanding of the macro names in `devicetree_generated.h`. Once we understand that, we should be able to know which exact macro Zephyr should generate for our node's properties.
+Before we dig deeper, let's try to gain a better understanding of the macro names in `devicetree_generated.h`. Once we understand those, we should be able to know which macro or macros Zephyr should generate for our node's properties.
 
 In Zephyr's `doc` folder, you can find the _"RFC 7405 ABNF grammar for devicetree macros"_ `zephyr/doc/build/dts/macros.bnf`. This RFC describes the macros that are directly generated out of the devicetree. In simple words, the following rules apply:
 
@@ -256,7 +258,7 @@ In Zephyr's `doc` folder, you can find the _"RFC 7405 ABNF grammar for devicetre
 - all letters are converted to lowercase,
 - and non-alphanumerics characters are converted to underscores "`_`"
 
-Let's look at the same old `uart@40002000` node, specified in the nRF52840's DTS file, and modified by the nRF52840 development kit's DTS file:
+Let's look at the same old `/soc/uart@40002000` node, specified in the nRF52840's DTS file, and modified by the nRF52840 development kit's DTS file:
 
 `zephyr/dts/arm/nordic/nrf52840.dtsi`
 ```dts
@@ -282,16 +284,16 @@ Let's look at the same old `uart@40002000` node, specified in the nRF52840's DTS
 Following the previous rules, we can transform the paths and property names:
 - The node path `/soc/uart@40002000` is transformed to `_S_soc_S_uart_40002000`.
 - The property name `current-speed` is transformed to `current_speed`.
-- The property name `status` remains the same.
+- The property name `status` stays the same.
 
-Since node paths are unique, by combining the node's path with its property names we can create a unique macro for each property - and that's exactly what the devicetree generator does. The leading `_N_` is used to indicate that it is followed by a node's path, `_P_` separates the node's path from its property. For our two properties, we get the following:
+Since node paths are unique, by combining the node's path with its property names we can create a unique macro for each property - and that's exactly what the devicetree generator does. The leading `_N_` is used to indicate that it is followed by a node's path, `_P_` separates the node's path from its property. For `uart@40002000`, we get the following:
 
 - `/soc/uart@40002000`, property `current-speed`
   becomes `N_S_soc_S_uart_40002000_P_current_speed`
 - `/soc/uart@40002000`, property `status`
   becomes `N_S_soc_S_uart_40002000_P_status`
 
-Adding the `DT_` prefix, we indeed end up with the generated names:
+Adding the `DT_` prefix, we can indeed find those macros in `devicetree_generated`:
 
 `build/zephyr/include/generated/devicetree_generated.h`
 ```c
@@ -317,7 +319,7 @@ For `/node_with_props`' properties, the generator should create the following ma
 
 Thus, in our `devicetree_generated.h` we should be able to find the above macros - but we don't. Something's still missing.
 
-### `compatible`
+### Matching bindings using a node's `compatible` property
 
 TODO: continue here
 
@@ -355,6 +357,12 @@ there is no DT_P_LABEL (no property or value label), only DT_NODELABEL
 
 from devicetree to C structure -> done via DT_ macros, e.g., GPIO_DT_SPEC_GET
 TODO: could we create our own little DT_SPEC_GET at least for prop-basic?
+
+## Practice run
+
+### Remapping `uart0`
+
+### Switching boards
 
 ## Summary
 
