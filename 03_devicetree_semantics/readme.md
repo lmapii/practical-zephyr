@@ -8,9 +8,18 @@
 - [Towards bindings](#towards-bindings)
   - [Extending the example application](#extending-the-example-application)
   - [Understanding devicetree macro names](#understanding-devicetree-macro-names)
-  - [Matching bindings using a node's `compatible` property](#matching-bindings-using-a-nodes-compatible-property)
+  - [Matching `compatible` bindings](#matching-compatible-bindings)
+  - [Bindings in Zephyr](#bindings-in-zephyr)
+  - [Bindings directory](#bindings-directory)
+- [Bindings by example](#bindings-by-example)
+  - [Naming](#naming)
+  - [Basic types](#basic-types)
+  - [Phandles](#phandles)
+  - [Full example](#full-example)
 - [Zephyr's devicetree API](#zephyrs-devicetree-api)
+  - [Macrobatics](#macrobatics)
 - [Practice run](#practice-run)
+  - [`status`](#status)
   - [Remapping `uart0`](#remapping-uart0)
   - [Switching boards](#switching-boards)
 - [Summary](#summary)
@@ -265,6 +274,7 @@ Let's look at the same old `/soc/uart@40002000` node, specified in the nRF52840'
 / {
   soc {
     uart0: uart@40002000 {
+      compatible = "nordic,nrf-uarte";
       reg = <0x40002000 0x1000>;
     };
   };
@@ -319,19 +329,190 @@ For `/node_with_props`' properties, the generator should create the following ma
 
 Thus, in our `devicetree_generated.h` we should be able to find the above macros - but we don't. Something's still missing.
 
-### Matching bindings using a node's `compatible` property
+### Matching `compatible` bindings
 
-TODO: continue here
+What's the difference between `/soc/uart@40002000` and our `/node_with_props`? There are lots, but the significant difference is, that `/soc/uart@40002000` has the **`compatible`** property. `compatible` is a standard property defined in the [DTSpec][devicetree-spec], so let's look it up:
+
+> Property name `compatible`, value type `<stringlist>`.
+>
+> The `compatible` property value consists of one or more strings that define the specific programming model for the device. This list of strings should be used by a client program for device driver selection. The property value consists of a concatenated list of null terminated strings, from most specific to most general. They allow a device to express its compatibility with a family of similar devices [...].
+>
+> The recommended format is `"manufacturer,model"`. [...] The compatible string should consist only of lowercase letters, digits and dashes, and should start with a letter. [...]
+
+Let's rephrase this: `compatible` is a list of strings, where each string is essentially a reference to some _model_. The [DTSpec][devicetree-spec] uses a specific term for such models: They are called **bindings**.
+
+The [DTSpec][devicetree-spec] defines _bindings_ as _"requirements [...] for how specific types and classes of devices are represented in the devicetree."_ In very simple words, a binding defines the properties that a node (or its children) can or even must have, their exact type, and their **meaning**.
+
+How is this any different from what we've been doing until now in our devicetree source files? Well, without a _binding_, we can give a node any number of properties, and can assign any property any value of any type. Also, any property name must be considered random. Let's take our own `node_with_props`:
+
+`dts/playground/props-basics.overlay`
+```dts
+/ {
+  node_with_props {
+    int = <1>;
+    string = "foo";
+  };
+};
+```
+
+The devicetree compiler won't complain if we'd assign a `string` to the property `int`. In fact, it doesn't even know whether or not `node_with_props` should have this property at all. We could even delete it and the compiler won't complain. We also don't know what the purpose of `int` or `string` mean or what they're used for. The same is true for the `current-speed` property of the `/soc/uart@40002000` node in the nRF52840 devicetree: Without any additional information, we can only _assume_ that this is the baud rate in bits/s, but we can't know for sure.
+
+Thus, by specifying _compatible bindings_, we're telling the devicetree compiler to check whether the given node really matches the properties and types defined in the _binding_, and we're telling it what to do with the information provided in the devicetree. Bindings also add the **semantics to a devicetree** by giving properties a _meaning_.
+
+The [DTSpec][devicetree-spec] includes some standard bindings, e.g., bindings for serial devices such as our UART device. It thus defines how serial devices should look like in the devicetree. This binding includes the `current-speed` property:
+
+|             |                                                                                                                                                     |
+| :---------- | :-------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Property    | `current-speed`                                                                                                                                     |
+| Value type  | `<u32>`                                                                                                                                             |
+| Description | Specifies the current speed of a serial device in bits per second. A boot program should set this property if it has initialized the serial device. |
+| Example     | 115,200 Baud: `current-speed = <115200>;`                                                                                                           |
+
+<!-- > **Note:** In case you're wondering why `current-speed` is not listed in the _"Standard Properties"_ section in the [DTSpec][devicetree-spec], but all of a sudden appears in the section about _"Serial devices" in the "Device Bindings", you're not alone: TODO: -->
+
+Finally, we're getting somewhere! We now know what the `current-speed` property is all about: We know its type, its physical unit, and its _meaning_. But this is just some table in the [DTSpec][devicetree-spec], how is this information represented in Zephyr?
+
+_Bindings_ live outside the devicetree. The [DTSpec][devicetree-spec] doesn't specify any file format or syntax that is used for bindings. Zephyr, like [Linux][linux-dts-bindings], uses `.yaml` files for its bindings. I'm assuming you're familiar with `YAML` - in case you're not, have a quick look at its [online documentation][yaml].
+
+### Bindings in Zephyr
+
+[Zephyr's official documentation][zephyr-dts-bindings-syntax] provides a comprehensive explanation of the syntax used for bindings. Unless you're adding your own devices and drivers, you'll hardly ever need to create bindings yourself. Therefore, in this section we'll walk through some existing bindings in Zephyr to gain a general understanding, and then create [our own example bindings](#bindings-by-example) in the next section.
+
+Let's have a look at what we can find out about `/soc/uart@40002000`'s `current-speed` and `status` properties in Zephyr: Via its `compatible` property, the node `/soc/uart@40002000` claims compatibility with the binding `nordic,nrf-uarte`, and thus `nordic`'s model (binding) for `nrf-uarte` devices:
+
+`zephyr/dts/arm/nordic/nrf52840.dtsi`
+```dts
+/ {
+  soc {
+    uart0: uart@40002000 {
+      compatible = "nordic,nrf-uarte";
+      /* ... */
+    };
+  };
+};
+```
+
+Zephyr recursively looks for devicetree bindings in `zephyr/dts/bindings`. Bindings are matched against the strings provided in the `compatible` property. Thus, for our UART node, Zephyr looks for a binding that matches `nordic,nrf-uarte.yaml`. Conveniently, bindings in Zephyr use the same basename as the `compatible` string, and thus we can find the correct binding by searching for a file called `nordic,nrf-uarte.yaml`, which can be found in the `serial` bindings subfolder:
+
+`zephyr/dts/bindings/serial/nordic,nrf-uarte.yaml`
+```yaml
+description: Nordic nRF family UARTE (UART with EasyDMA)
+compatible: "nordic,nrf-uarte"
+include: ["nordic,nrf-uart-common.yaml", "memory-region.yaml"]
+```
+
+Checking the _compatible_ key, we see that it indeed matches the node's property. Notice that this key's value is what is matched against the property, _not_ the filename. Theoretically, the file could have a different name, but by convention matches the _compatible_ key.
+
+Apart from _compatible_, the binding also has a textual _description_ and some *include*s. As the name suggests, the _include_ key allows to include the content of other bindings. Files are included by filename without specifying any paths or directories - Zephyr determines the search paths, one of which includes all subfolders of `zephyr/dts/bindings`. For the exact syntax, have a look at the [official documentation][zephyr-dts-bindings-syntax-include].
+
+The contents of included files are essentially merged using a recursive dictionary merge. In short: Everything that's declared in included bindings is available in the including file.
+
+> **Note:** In case you're wondering what happens with duplicated keys and/or values, try it out based on what we learn in the next section, where we'll create our own bindings.
+
+Since `nordic,nrf-uarte.yaml` doesn't seem to define anything related to our properties - just like in the chapter on `Kconfig` - we once again have to walk down the include tree. Let's try `nordic,nrf-uart-common.yaml`:
+
+`zephyr/dts/bindings/serial/nordic,nrf-uart-common.yaml`
+```yaml
+include: [uart-controller.yaml, pinctrl-device.yaml]
+properties:
+  # --snip--
+  current-speed:
+    description: |
+      Initial baud rate setting for UART. Only a fixed set of baud
+      rates are selectable on these devices.
+    enum:
+      - 1200
+      - 2400
+      # --snip--
+      - 921600
+      - 1000000
+```
+
+This must be it! There's now a key _properties_, which a child element that matches our `current-speed` property. And sure enough, the _properties_ key is used to [properties that nodes which match the binding contain][zephyr-dts-bindings-syntax-properties].
+
+Here, `nordic` seems to restrict the allowed baudrates using an *enum*eration. We can therefore only specify values from the given list. But how does the devicetree compiler know the type of the property? Couldn't we also use an *enum*eration to pre-define `string`s? Yes, we could, and there's indeed something missing: The property's _type_.
+
+To find out the type, we need to step further down the include tree, into `uart-controller.yaml`. This is Zephyr's base model for UART controllers, which is used regardless of the actual manufacturer:
+
+`zephyr/dts/bindings/serial/uart-controller.yaml`
+```yaml
+include: base.yaml
+
+bus: uart
+
+properties:
+  # --snip--
+  current-speed:
+    type: int
+    description: Initial baud rate setting for UART
+  # --snip--
+```
+
+Now, we finally know that `current-speed` is of type `int` and is used to configure the initial baud rate setting for UART (though the descriptio fails to mention that the baud rate is specified in _bits per second_). We can only select from a pre-defined list of baud rates and cannot specify our own custom baud rate - at least not in the devicetree. Given this _binding_, the devicetree compiler now rejects any but the allowed values, and it is therefore not possible to specify a syntactically correct value that is not an integer of the given list.
+
+> **Note:** The `bus: uart` is a special key that allows you to associate devices to a bus system, e.g., I2C, SPI or UART. This feature is especially useful if a device supports multiple bus types, e.g., a sensor that can be connected via SPI or I2C. This is out of scope for this chapter, though, but is explained perfectly in the [official documentation][zephyr-dts-bindings-syntax-bus].
+
+What about the `status`? As you might have guessed, we need to take yet another step down the include tree and have a look at the `base.yml` binding. This binding contains common fields used by _all_ devices in Zephyr. Here, we not only encounter the `status` property, but also the `compatible` property:
+
+`zephyr/dts/bindings/base/base.yaml`
+```yaml
+include: [pm.yaml]
+
+properties:
+  status:
+    type: string
+    description: indicates the operational status of a device
+    enum:
+      - "ok" # Deprecated form
+      - "okay"
+      - "disabled"
+      - "reserved"
+      - "fail"
+      - "fail-sss"
+
+  compatible:
+    type: string-array
+    required: true
+    description: compatible strings
+  # --snip--
+```
+
+Thus, _status_ is simply a property of type `string` with pre-defined values that can be assigned in the devicetree. It indicates the operational status of a device, which we'll see in action in a later section.
+
+While going through binding files may seem tedious, the include tree depth is usually quite small, and once you know the base bindings such as `base.yaml`, it typically comes down to a handfull of files. There is, however, no "flattened" output file like `build/zephyr/zephyr.dts`, and therefore it is always necessary to walk through the bindings. We'll have a quick look at [Nordic's][nordicsemi] plugin for _Visual Studio Code_ later, but thus far you'll always need to look at the source files. The following shows the include tree of `nordic,nrf-uarte.yaml` at the time of writing:
+
+```
+nordic,nrf-uarte.yaml
+├── nordic,nrf-uart-common.yaml
+│   ├── uart-controller.yaml
+│   │   └── base.yaml
+│   │       └── pm.yaml
+│   └── pinctrl-device.yaml
+└── memory-region.yaml
+```
+
+There's one more important thing about `compatible` and matching bindings: If a node has more than one string in its `compatible` property, the build system looks for compatible bindings in the listed order and uses the first match.
+
+### Bindings directory
+
+Before we can go ahead and experiment using our own bindings, we need to know where to place them. Just like the `dts/bindings` in _Zephyr's_ root directory, the [build process][zephyr-dts-intro-input-and-output] also picks up any bindings in `dts/bindings` in the _application's_ root directory.
+
+In contrast to overlays, however, detected bindings are not listed in the build output.
+
+
+## Bindings by example
+
+### Naming
+
+### Basic types
+
+### Phandles
+
+### Full example
 
 
 
 
-
-
-
-
-
-##
 
 Devicetree nodes are matched to bindings using their compatible properties.
 
@@ -360,6 +541,8 @@ TODO: could we create our own little DT_SPEC_GET at least for prop-basic?
 
 ## Practice run
 
+### `status`
+
 ### Remapping `uart0`
 
 ### Switching boards
@@ -371,9 +554,17 @@ TODO: could we create our own little DT_SPEC_GET at least for prop-basic?
 [nordicsemi]: https://www.nordicsemi.com/
 [nordicsemi-academy-devicetree]: https://academy.nordicsemi.com/topic/devicetree/ters
 [devicetree-spec]: https://www.devicetree.org/specifications/
+[linux-dts-bindings]: https://docs.kernel.org/devicetree/bindings/writing-schema.html
+[yaml]: https://yaml.org/
 
 [zephyr-build-board-revision]: https://docs.zephyrproject.org/latest/develop/application/index.html#application-board-version
 [zephyr-dts-overlays]: https://docs.zephyrproject.org/latest/build/dts/howtos.html#set-devicetree-overlays
+[zephyr-dts-intro-input-and-output]: https://docs.zephyrproject.org/latest/build/dts/intro-input-output.html
+[zephyr-dts-bindings-intro]: https://docs.zephyrproject.org/latest/build/dts/bindings-intro.html
+[zephyr-dts-bindings-syntax]: https://docs.zephyrproject.org/latest/build/dts/bindings-syntax.html
+[zephyr-dts-bindings-syntax-include]: https://docs.zephyrproject.org/latest/build/dts/bindings-syntax.html#include
+[zephyr-dts-bindings-syntax-properties]: https://docs.zephyrproject.org/latest/build/dts/bindings-syntax.html#properties
+[zephyr-dts-bindings-syntax-bus]: https://docs.zephyrproject.org/latest/build/dts/bindings-syntax.html#bus
 
 <!--
 [zephyr-kconfig]: https://docs.zephyrproject.org/latest/build/kconfig/index.html#configuration-system-kconfig
