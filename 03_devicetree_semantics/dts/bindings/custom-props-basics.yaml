@@ -1,8 +1,8 @@
-# SPDX-License-Identifier: BSD-3-Clause
-
 description: Custom properties
 
-# not using "custom,props-basics" since the vendor "custom" doesn't exist in the vendor-prefixes.txt
+# Not using "custom,props-basics" since the vendor "custom" doesn't exist in the vendor-prefixes.txt.
+# The generation doesn't fail but it leads to the following message:
+# compatible 'custom-props-basics' has unknown vendor prefix 'dummy'
 compatible: "custom-props-basics"
 
 properties:
@@ -30,3 +30,10 @@ properties:
   string-array:
     type: string-array
     const: ['foo', 'bar', 'baz']
+
+  enum-value:
+    type: int
+    enum:
+      - 100
+      - 200
+      - 300

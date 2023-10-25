@@ -236,7 +236,14 @@ Checking the output file `build/zephyr/zephyr.dts` we also see that our `node_wi
 };
 ```
 
-However, trying to find `foo` within `devicetree_generated.h` yields no results! Did we miss something? One thing that is easy to check, is that the `devicetree_generated.h` contains our node: We can just search using the node's full path `/node_with_props`. You should find a large comment, separating the macros generated for our node, containing a list of definitions:
+Let's see if we can find anything in `devicetree_generated.h` by using the quite unique value `foo` of our `string` property:
+
+```bash
+$ grep foo ../build/zephyr/include/generated/devicetree_generated.h
+$
+```
+
+The search yields no results! Did we miss something? One thing that is easy to check, is that the `devicetree_generated.h` contains our node: We can just search using the node's full path `/node_with_props`. You should find a large comment, separating the macros generated for our node, containing a list of definitions:
 
 `build/zephyr/include/generated/devicetree_generated.h`
 ```c
@@ -502,7 +509,105 @@ In contrast to overlays, however, detected bindings are not listed in the build 
 
 ## Bindings by example
 
+This is it, we're finally there! We'll now add bindings for our [extended example application](#extending-the-example-application) to get some generated output for our node's properties. We've just seen that we can place our bindings in the [`dts/bindings` directory](#bindings-directory).
+
 ### Naming
+
+Before we start we need to solve one of the hardest problems in engineering: Finding a good _name_. The [devicetree specification][devicetree-spec] contains a guideline on the value for the `compatible` property of a node - and therefore the name of the binding:
+
+> "The `compatible` string should consist only of lowercase letters, digits and dashes, and should start with a letter. A single comma is typically only used following a vendor prefix. Underscores should not be used." [DTSpec][devicetree-spec]
+
+Let's try this with the binding name _custom,props-basic_ and thus vendor prefix _custom_. We'll follow the convention and use the binding's name as filename and create a new file `custom,props-basics.yaml` in the application's `dts/bindings` directory:
+
+```bash
+$ tree --charset=utf-8 --dirsfirst.
+├── dts
+│   ├── bindings
+│   │   └── custom,props-basics.yaml
+│   └── playground
+│       └── props-basics.overlay
+├── src
+│   └── main.c
+├── CMakeLists.txt
+└── prj.conf
+```
+
+In our binding, we define our `compatible` key as `"custom,props-basics"`, and define two properties `int` and `string` of the matching type, without providing any description (we'll look at the properties in a bit):
+
+`dts/bindings/custom,props-basics.yaml`
+```yaml
+description: Custom properties
+compatible: "custom,props-basics"
+
+properties:
+  int:
+    type: int
+  string:
+    type: string
+```
+
+Finally, we create a new property `compatible = "custom,props-basic"` for our existing `node_with_props` ...
+
+`dts/playground/props-basics.overlay`
+```dts
+/ {
+  node_with_props {
+    compatible = "custom,props-basic"
+    int = <1>;
+    string = "foo";
+  };
+};
+```
+
+... and recompile:
+
+```bash
+$ rm -rf ../build
+$ west build --board nrf52840dk_nrf52840 --build-dir ../build -- \
+  -DEXTRA_DTC_OVERLAY_FILE="dts/playground/props-basics.overlay"
+```
+```
+-- Found devicetree overlay: dts/playground/props-basics.overlay
+node '/node_with_props' compatible 'dummy,props-basics' has unknown vendor prefix 'dummy'
+-- Generated zephyr.dts: /path/to/build/zephyr/zephyr.dts
+-- Generated devicetree_generated.h: /path/to/build/zephyr/include/generated/devicetree_generat
+```
+
+It seems that the devicetree compiler is not too happy about our _"dummy"_ vendor prefix. Zephyr warns us here since it maintains a _"devicetree binding vendor prefix registry"_ `zephyr/dts/bindings/vendor-prefixes.txt` to avoid name-space collisions for properties and bindings. If you're a vendor, you can of course try to add your name upstream, but we'll skip the vendor prefix and use the binding name _custom-props-basics_ instead.
+
+```bash
+$ mv dts/bindings/dummy,props-basics.yaml dts/bindings/custom-props-basics.yaml
+$ sed -i .bak 's/dummy,/custom-/g' dts/bindings/custom-props-basics.yaml
+$ sed -i .bak 's/dummy,/custom-/g' dts/playground/props-basics.overlay
+$ rm dts/**/*.bak
+
+$ tree --charset=utf-8 --dirsfirst.
+├── dts
+│   ├── bindings
+│   │   └── custom-props-basics.yaml
+│   └── playground
+│       └── props-basics.overlay
+├── src
+│   └── main.c
+├── CMakeLists.txt
+└── prj.conf
+```
+
+Without recompiling, we can check whether the generator script has added our properties to `devicetree_generated.h`. The value _foo_ should be unique enough, for our property _int_ we'll use what we've learned and expect some macro containing `node_with_props_P_int`. And indeed, we've finally have our generated output:
+
+```bash
+$ grep foo ../build/zephyr/include/generated/devicetree_generated.h
+#define DT_N_S_node_with_props_P_string "foo"
+#define DT_N_S_node_with_props_P_string_STRING_UNQUOTED foo
+#define DT_N_S_node_with_props_P_string_STRING_TOKEN foo
+$ grep node_with_props_P_int ../build/zephyr/include/generated/devicetree_generated.h
+#define DT_N_S_node_with_props_P_int 1
+#define DT_N_S_node_with_props_P_int_EXISTS 1
+```
+
+We'll learn how to use those macros in the section about [Zephyr's devicetree API](#zephyrs-devicetree-api), for now we'll just make sure that we can generate some macros for all supported types. In case you can't wait and want to have a more detailed look, I suggest you have a look at [Zephyr's brilliant introduction to devicetree bindings][zephyr-dts-bindings-intro].
+
+> **Note:** If you're experimenting and don't see any output, make sure that the `compatible` property is set correctly. The devicetree compiler does not complain in case it doesn't find a matching binding. So in case you have a typo in your `compatible` property or key, the application builds without warnings but `devicetree_generated.h` won't have any content.
 
 ### Basic types
 
