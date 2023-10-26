@@ -1,36 +1,25 @@
 description: Custom properties
 
-# Not using "custom,props-basics" since the vendor "custom" doesn't exist in the vendor-prefixes.txt.
+# The following compatible key does not use the value "custom,props-basics"
+# since the vendor "custom" doesn't exist in the vendor-prefixes.txt.
 # The generation doesn't fail but it leads to the following message:
 # compatible 'custom-props-basics' has unknown vendor prefix 'dummy'
 compatible: "custom-props-basics"
 
 properties:
-
-  nonexistent-boolean:
-    type: boolean
-
   existent-boolean:
     type: boolean
-
   int:
     type: int
-    # TODO: const: 1
-
+    required: true
   array:
     type: array
-
   uint8-array:
     type: uint8-array
-
   string:
     type: string
-    # TODO: const: "foo"
-
   string-array:
     type: string-array
-    const: ['foo', 'bar', 'baz']
-
   enum-value:
     type: int
     enum:

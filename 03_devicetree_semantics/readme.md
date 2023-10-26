@@ -14,8 +14,16 @@
 - [Bindings by example](#bindings-by-example)
   - [Naming](#naming)
   - [Basic types](#basic-types)
+    - [`boolean`](#boolean)
+    - [`int`](#int)
+    - [`array` and `uint8-array`](#array-and-uint8-array)
+    - [`string`](#string)
+    - [`string-array`](#string-array)
+    - [`enum`](#enum)
   - [Phandles](#phandles)
+  - [`aliases` and `chosen`](#aliases-and-chosen)
   - [Full example](#full-example)
+  - [Deleting properties](#deleting-properties)
 - [Zephyr's devicetree API](#zephyrs-devicetree-api)
   - [Macrobatics](#macrobatics)
 - [Practice run](#practice-run)
@@ -267,10 +275,10 @@ Before we dig deeper, let's try to gain a better understanding of the macro name
 
 In Zephyr's `doc` folder, you can find the _"RFC 7405 ABNF grammar for devicetree macros"_ `zephyr/doc/build/dts/macros.bnf`. This RFC describes the macros that are directly generated out of the devicetree. In simple words, the following rules apply:
 
-- `DT_` is the common prefix for devicetree macros,
-- `_S_` is a forward slash `/`,
-- `_N_` refers to a _node_,
-- `_P_` is a _property_,
+- `DT` is the common prefix for devicetree macros,
+- `S` is a forward slash `/`,
+- `N` refers to a _node_,
+- `P` is a _property_,
 - all letters are converted to lowercase,
 - and non-alphanumerics characters are converted to underscores "`_`"
 
@@ -532,7 +540,7 @@ $ tree --charset=utf-8 --dirsfirst.
 └── prj.conf
 ```
 
-In our binding, we define our `compatible` key as `"custom,props-basics"`, and define two properties `int` and `string` of the matching type, without providing any description (we'll look at the properties in a bit):
+In our binding, we define our `compatible` key as `"custom,props-basics"`, and define two properties `int` and `string` of the matching type, without providing any description:
 
 `dts/bindings/custom,props-basics.yaml`
 ```yaml
@@ -546,6 +554,19 @@ properties:
     type: string
 ```
 
+Bindings define a node's properties under the key _properties_. The above is the simplest form for a property in a binding, and has the following form:
+
+```yaml
+properties:
+  <property-name>:
+    type: <property-type>
+    # required: false -> omitted by convention if false
+```
+
+Properties have a _name_ and are therefore unique within the node, and each property is assigned a _type_ using the corresponding key. Other keys are such as _required_ are optional.
+
+There are several other keys and "features", e.g., it is possible to define the properties for _children_ of a node with the matching `compatible` property, but we'll only have a look at the very basics. Definitely dive into [Zephyr's official documentation][zephyr-dts-bindings-syntax] once you're through with this chapter!
+
 Finally, we create a new property `compatible = "custom,props-basic"` for our existing `node_with_props` ...
 
 `dts/playground/props-basics.overlay`
@@ -554,7 +575,7 @@ Finally, we create a new property `compatible = "custom,props-basic"` for our ex
   node_with_props {
     compatible = "custom,props-basic"
     int = <1>;
-    string = "foo";
+    string = "foo bar baz";
   };
 };
 ```
@@ -572,6 +593,8 @@ node '/node_with_props' compatible 'dummy,props-basics' has unknown vendor prefi
 -- Generated zephyr.dts: /path/to/build/zephyr/zephyr.dts
 -- Generated devicetree_generated.h: /path/to/build/zephyr/include/generated/devicetree_generat
 ```
+
+> **Note:** As mentioned, at the time of writing and in contrast to overlay files, bindings are not listed in the build output, not even for bindings in the application's `dts/bindings` directory.
 
 It seems that the devicetree compiler is not too happy about our _"dummy"_ vendor prefix. Zephyr warns us here since it maintains a _"devicetree binding vendor prefix registry"_ `zephyr/dts/bindings/vendor-prefixes.txt` to avoid name-space collisions for properties and bindings. If you're a vendor, you can of course try to add your name upstream, but we'll skip the vendor prefix and use the binding name _custom-props-basics_ instead.
 
@@ -593,28 +616,153 @@ $ tree --charset=utf-8 --dirsfirst.
 └── prj.conf
 ```
 
-Without recompiling, we can check whether the generator script has added our properties to `devicetree_generated.h`. The value _foo_ should be unique enough, for our property _int_ we'll use what we've learned and expect some macro containing `node_with_props_P_int`. And indeed, we've finally have our generated output:
+Without recompiling, we can check whether the generator script has added our properties to `devicetree_generated.h`. The value _foo_ is unique enough for a quick `grep`; for our property _int_ we'll use what we've learned and expect finding some macro containing `node_with_props_P_int`. And indeed, we've **finally** have our generated output!
 
 ```bash
 $ grep foo ../build/zephyr/include/generated/devicetree_generated.h
-#define DT_N_S_node_with_props_P_string "foo"
-#define DT_N_S_node_with_props_P_string_STRING_UNQUOTED foo
-#define DT_N_S_node_with_props_P_string_STRING_TOKEN foo
+#define DT_N_S_node_with_props_P_string "foo bar baz"
+#define DT_N_S_node_with_props_P_string_STRING_UNQUOTED foo bar baz
+#define DT_N_S_node_with_props_P_string_STRING_TOKEN foo_bar_baz
 $ grep node_with_props_P_int ../build/zephyr/include/generated/devicetree_generated.h
 #define DT_N_S_node_with_props_P_int 1
 #define DT_N_S_node_with_props_P_int_EXISTS 1
 ```
 
-We'll learn how to use those macros in the section about [Zephyr's devicetree API](#zephyrs-devicetree-api), for now we'll just make sure that we can generate some macros for all supported types. In case you can't wait and want to have a more detailed look, I suggest you have a look at [Zephyr's brilliant introduction to devicetree bindings][zephyr-dts-bindings-intro].
+We'll learn how to use those macros in the section about [Zephyr's devicetree API](#zephyrs-devicetree-api). For now, we'll just make sure that our bindings lead to some generaetd output for all supported types. In case you can't wait and want to have a more detailed look instead, I suggest you have a look at [Zephyr's brilliant introduction to devicetree bindings][zephyr-dts-bindings-intro].
 
-> **Note:** If you're experimenting and don't see any output, make sure that the `compatible` property is set correctly. The devicetree compiler does not complain in case it doesn't find a matching binding. So in case you have a typo in your `compatible` property or key, the application builds without warnings but `devicetree_generated.h` won't have any content.
+> **Note:** If you're experimenting and don't see any output, make sure that the `compatible` property is set correctly. The devicetree compiler does **not** complain in case it doesn't find a matching binding. So in case you have a typo in your `compatible` property, the application builds without warnings, but `devicetree_generated.h` won't have any content for the desired properties.
 
 ### Basic types
 
+In the previous chapter about devicetree, we've seen all basic types. We'll use the same node, but extend it with one property called `enum-value`, since *enum*erations are represented differently in bindings. In the previous chapter about devicetree basics we've seen that Zephyr's devicetree generator ignores _value_ labels. We'll throw in two of those, named `second_value` and `string_value`, for good practice, and also add the `label_with_props` for `/node_with_props`:
+
+`dts/playground/props-basics.overlay`
+```dts
+/ {
+  label_with_props: node_with_props {
+    compatible = "custom-props-basics";
+    existent-boolean;
+    int = <1>;
+    array = <1 second_value: 2 3>;
+    uint8-array = [ 12 34 ];
+    string = string_value: "foo bar baz";
+    string-array = "foo", "bar", "baz";
+    enum-value = <200>;
+  };
+};
+```
+
+Now we simply need to extend our bindings file by adding an entry for each of the node's properties in the _properties_ key:
+
+`dts/bindings/custom-props-basics.yaml`
+```yaml
+description: Custom properties
+compatible: "custom-props-basics"
+
+properties:
+  existent-boolean:
+    type: boolean
+  int:
+    type: int
+    required: true
+  array:
+    type: array
+  uint8-array:
+    type: uint8-array
+  string:
+    type: string
+  string-array:
+    type: string-array
+  enum-value:
+    type: int
+    enum:
+      - 100
+      - 200
+      - 300
+```
+
+After recompiling ...
+
+```bash
+$ rm -rf ../build
+$ west build --board nrf52840dk_nrf52840 --build-dir ../build -- \
+  -DEXTRA_DTC_OVERLAY_FILE="dts/playground/props-basics.overlay"
+```
+
+... we can now find macros for all of our properties in `devicetree_generated.h` for the node `/node_with_props`, and the comment block also indicates which binding was selected to generate the macros.
+
+`build/zephyr/include/generated/devicetree_generated.h`
+```c
+/*
+ * Devicetree node: /node_with_props
+ *
+ * Node identifier: DT_N_S_node_with_props
+ *
+ * Binding (compatible = custom-props-basics):
+ *   /path/to/dts/bindings/custom-props-basics.yaml
+ */
+
+/* Node's full path: */
+#define DT_N_S_node_with_props_PATH "/node_with_props"
+/* --snip-- */
+/* Generic property macros: */
+/* --snip-- */
+```
+
+Let's have a look at the generated macros listed beyond the marker _Generic property macros_.
+
+#### `boolean`
+
+For the property `existent-boolean` of type `boolean`, the devicetree generator produces the following macros:
+
+```c
+#define DT_N_S_node_with_props_P_existent_boolean 1
+#define DT_N_S_node_with_props_P_existent_boolean_EXISTS 1
+```
+
+Using what we've learned in the section about [understanding devicetree macro names](#understanding-devicetree-macro-names), we can easily understand the basename `DT_N_S_node_with_props_P_existent_boolean` of the generated macros:
+
+`DT` is the devicetree prefix, `N` indicates that what follows is a node's path, `S` is a forward slash `/`, and finally `P` indicates the start of a property. Thus `DT_N_S_node_with_props_P_existent_boolean` basically translates to `node=/node_with_props`, `property=existent_boolean`.
+
+Since the `existent-boolean` property is present in the node in our overlay, its value translates to `0`. If we'd _remove_ the property from our node, we'd end up with the following:
+
+```c
+#define DT_N_S_node_with_props_P_existent_boolean 0
+#define DT_N_S_node_with_props_P_existent_boolean_EXISTS 1
+```
+
+Thus, the value of *boolean*s is `0` if the property is _false_, or `1` if it is _true_.
+
+What about `_EXISTS`? Remember that any path or property name is transformed to its _lowercase_ form in the devicetree macros. `_EXIST` is all uppercase, which indicates that it isn't a value definition, but a macro that is generated for use with the [devicetree API](#zephyrs-devicetree-api).
+
+For properties of any type but `boolean`s, Zephyr's devicetree generator creates a matching `_EXISTS` macro _only_ if the property _exists_ in the devicetree. If a property is not present, no macros are generated. *Boolean*s are an exception where this macro is _always_ generated, since a missing property value means that the property is set to _false_.
+
+> **Note:** In case you're wondering if it is possible to _unset_ or delete a boolean that is defined somewhere else in the devicetree - yes it is, and we'll try it out in the section about[deleting properties](#deleting-properties).
+
+#### `int`
+
+
+#### `array` and `uint8-array`
+
+
+#### `string`
+
+
+#### `string-array`
+
+
+
+#### `enum`
+
+
 ### Phandles
+
+### `aliases` and `chosen`
 
 ### Full example
 
+
+### Deleting properties
 
 
 
@@ -643,6 +791,9 @@ there is no DT_P_LABEL (no property or value label), only DT_NODELABEL
 
 from devicetree to C structure -> done via DT_ macros, e.g., GPIO_DT_SPEC_GET
 TODO: could we create our own little DT_SPEC_GET at least for prop-basic?
+
+### Macrobatics
+
 
 ## Practice run
 

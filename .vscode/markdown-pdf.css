@@ -1,0 +1,69 @@
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Verdana", "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	font-size: 8pt;
+	line-height: 12pt;
+	padding: 0 26px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre.hljs code > div {
+	padding: 8px !important;
+}
+
+pre:not(.hljs) {
+	padding: 12px;
+	/* line-height: 19px; */
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+	padding-top: 4pt;
+	padding-bottom: 4pt;
+	/* margin: 0px; */
+}
+
+/* blockquote > p {
+	margin: 0px;
+} */
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	/* font-size: 14px; */
+	font-size: 6pt;
+	line-height: 8pt;
+}
+
+pre code {
+	/* font-size: 14px; */
+	font-size: 6pt;
+	line-height: 10pt;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+	font-size: 6pt;
+}
+
+/* Page Break : use <div class="page"/> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
