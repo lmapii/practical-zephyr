@@ -20,9 +20,14 @@ properties:
     type: string
   string-array:
     type: string-array
-  enum-value:
+  enum-int:
     type: int
     enum:
       - 100
       - 200
       - 300
+  enum-string:
+    type: string
+    enum:
+      - "whatever"
+      - "works"

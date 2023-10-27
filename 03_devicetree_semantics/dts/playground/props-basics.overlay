@@ -25,12 +25,13 @@
 
   label_with_props: node_with_props {
     compatible = "custom-props-basics";
-    // existent-boolean;
+    existent-boolean;
     int = <1>;
     array = <0xA second_value: 0xB 0xC>;
     uint8-array = [ 12 34  ];
     string = string_value: "foo bar baz";
     string-array = "foo", "bar", "baz";
-    enum-value = <200>;
+    enum-int = <200>;
+    enum-string = "whatever";
   };
 };
