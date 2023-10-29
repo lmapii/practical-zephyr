@@ -5,3 +5,5 @@ thumbs.db
 
 **/build
 # build/cmake_install.cmake
+
+pasted*

@@ -792,7 +792,7 @@ So what's this `phandle-array` type? It is simply a list of phandles _with metad
 - The value of a `phandle-array` property is an array of phandles, but each phandle can be followed by cells (32-bit values). In the example above, the two values `1 2` are `&{/node_a}`'s _metadata, whereas `3` is `&label_b`'s metadata.
 - The new properties `#phandle-array-of-ref-cells` tell how many metadata _cells_ are supported by the node. Such properties are called [specifier cells][zephr-dts-bindings-specifier-cells]: In our example, for `node_a` it specifies that the node supports two cells, `node_b` only one.
 
-_Specifier cells_ like `#phandle-array-of-ref-cells` have a defined naming convention: The name is formed by removing the plural '_s_' and attach '_-cells_' to the name of the `phandle-array` property. For our property _phandle-array-of-refs_, we thus end up with _phandle-array-of-ref~~s~~**-cells**_.
+_Specifier cells_ like `#phandle-array-of-ref-cells` have a defined naming convention: The name is formed by removing the plural '_s_' and attaching '_-cells_' to the name of the `phandle-array` property. For our property _phandle-array-of-refs_, we thus end up with _phandle-array-of-ref~~s~~**-cells**_.
 
 You may have noticed that the property `#gpio-cells` doesn't follow the specifier cell naming convention: Every rule has its exceptions, and in case you're interested in details, I'll leave you with a reference to [Zephyr's documentation on specifier cells][zephr-dts-bindings-specifier-cells].
 

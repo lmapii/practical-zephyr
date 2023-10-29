@@ -20,17 +20,17 @@
     - [`string`](#string)
     - [`string-array`](#string-array)
     - [`enum`](#enum)
-  - [Labels](#labels)
+  - [Labels and paths](#labels-and-paths)
+    - [`aliases` and `chosen`](#aliases-and-chosen)
   - [Phandles](#phandles)
-  - [`aliases` and `chosen`](#aliases-and-chosen)
-  - [Full example](#full-example)
+    - [`path`, `phandle` and `phandles`](#path-phandle-and-phandles)
+    - [`phandle-array`](#phandle-array)
+      - [`phandle-array` in Zephyr](#phandle-array-in-zephyr)
+      - [A `phandle-array` from scratch](#a-phandle-array-from-scratch)
   - [Deleting properties](#deleting-properties)
+  - [Full example](#full-example)
 - [Zephyr's devicetree API](#zephyrs-devicetree-api)
   - [Macrobatics](#macrobatics)
-- [Practice run](#practice-run)
-  - [`status`](#status)
-  - [Remapping `uart0`](#remapping-uart0)
-  - [Switching boards](#switching-boards)
 - [Summary](#summary)
 - [Further reading](#further-reading)
 
@@ -885,8 +885,12 @@ The following is produced for `enum-string` with the allowed values _whatever_ a
 
 Here, the generator produced the same marcos that we'd get if `enum-string` was a plain `string` (including the character-based `_FOREACH` macros), and again we get the index of the chosen value within the enumeration. In addition, the generator produces `TOKEN` and `TOKEN_UPPER` macros with an `ENUM` prefix - to make the tokens accessible using the devicetree API macros for enumerations.
 
-### Labels
+### Labels and paths
 
+Before we move on to properties using `phandle` types, let's have a look at labels and paths. As we've seen in the previous chapter about the devicetree basics, the [devicetree specification][devicetree-spec] allows _labels_ not only to refer to _nodes_ but also at other positions in the devicetree, e.g., in front of property _values_. In our example, three labels:
+
+- One label `label_with_props` for our node `/node_with_props`,
+- Two labels `second_value` and `string_value` for some property values.
 
 `dts/playground/props-basics.overlay`
 ```dts
@@ -903,14 +907,497 @@ Here, the generator produced the same marcos that we'd get if `enum-string` was 
 };
 ```
 
+Zephyr's DTS generator accepts this input and - as we've seen - won't complain about the labels `second_value` and `string_value` refering to the property values. However, Zephyr simply ignores any label that doesn't refer to a _node_ and therefore doesn't generate anything usable for the property labels. Only the _node_ label `label_with_props` has a macro:
+
+```bash
+$ grep second_value ../build/zephyr/include/generated/devicetree_generated.h
+$ grep string_value ../build/zephyr/include/generated/devicetree_generated.h
+$ grep label_with_props ../build/zephyr/include/generated/devicetree_generated.h
+#define DT_N_NODELABEL_label_with_props DT_N_S_node_with_props
+```
+
+The following macros are generated to represent a node and its labels:
+
+`build/zephyr/include/generated/devicetree_generated.h`
+```c
+/*
+ * Devicetree node: /node_with_props
+ *
+ * Node identifier: DT_N_S_node_with_props
+ * --snip--
+ */
+/* Node's full path: */
+#define DT_N_S_node_with_props_PATH "/node_with_props"
+/* Node's name with unit-address: */
+#define DT_N_S_node_with_props_FULL_NAME "node_with_props"
+// --snip--
+/* Existence and alternate IDs: */
+#define DT_N_S_node_with_props_EXISTS 1
+#define DT_N_INST_0_custom_props_basics DT_N_S_node_with_props
+#define DT_N_NODELABEL_label_with_props DT_N_S_node_with_props
+```
+
+The _identifier_ that is used for our `/node_with_props` is `DT_N_S_node_with_props`, which is exactly what we'd expect for the given path and from what we've learned about [understanding devicetree macro names](#understanding-devicetree-macro-names). This _identifier_ is itself just a _token_: No macro with the name `DT_N_S_node_with_props` actually exists!
+
+_Identifiers_ are used by the macros of the [devicetree API](#zephyrs-devicetree-api). As we'll see, these macros do nothing but paste together different _tokens_. E.g., accessing a node's property's value, all we need to do is paste together tokens:
+
+- Using the node identifier `DT_N_S_node_with_props`,
+- and knowing that `_P_` is used for property names,
+- we end up with `DT_N_S_node_with_props_P_int` for the property `int`.
+
+In turn, a _label_ is nothing else than a different name for our node's identifier, as we can see in the above snippet of `devicetree_generated.h`. Labels use the format `DT_N_NODELABEL_<label_in_lowercase>` as macro name and the node's identifier as value.
+
+In addition, the generator also produces macros with the suffix `_PATH` and `FULL_NAME` that contain the node's full path and name including the unit address as string literals.
+
+#### `aliases` and `chosen`
+
+In the previous chapter about devicetree basics we've also seen the standard nodes `aliases` and `chosen`, predefined by the [devicetree specification][devicetree-spec], which allow referring to a node using a _phandle_ (either using a reference to its label or the `${/full/path}` syntax), or the node's full path as a string. Let's try this out in our overlay file:
+
+`dts/playground/props-basics.overlay`
+```dts
+/ {
+  aliases {
+    alias-by-label = &label_with_props;
+    alias-by-path = &{/node_with_props};
+    alias-as-string = "/node_with_props";
+  };
+
+  chosen {
+    chosen-by-label = &label_with_props;
+    chosen-by-path = &{/node_with_props};
+    chosen-as-string = "/node_with_props";
+  };
+  /* ... previous content ... */
+};
+```
+
+The node's aliases are translated to macros with the format `DT_N_ALIAS_<alias_in_lowercase>` in the node's section _"Existence and alternate IDs"_ that we've seen just before. Looking at the generated ouput, it is now also clear why there's no clear distinction between the terms _"references"_ and _"phandle"_ in Zephyr:
+
+```c
+/* Existence and alternate IDs: */
+#define DT_N_S_node_with_props_EXISTS 1
+#define DT_N_ALIAS_alias_by_label       DT_N_S_node_with_props
+#define DT_N_ALIAS_alias_by_path        DT_N_S_node_with_props
+#define DT_N_ALIAS_alias_as_string      DT_N_S_node_with_props
+#define DT_N_INST_0_custom_props_basics DT_N_S_node_with_props
+#define DT_N_NODELABEL_label_with_props DT_N_S_node_with_props
+```
+
+Whether we reference a node using its label, a path reference or its path as string, it all translates to the node's _identifier_ token. The only difference is [which devicetree API](#zephyrs-devicetree-api) we use to obtain this token, as we'll see later.
+
+Finally, `/chosen` nodes are listed in their own output section in `devicetree_generated.h`. The only difference to `/aliases` is, that each macro also gets its own `_EXISTS` pair:
+
+```c
+/*
+ * Chosen nodes
+ */
+// --snip--
+#define DT_CHOSEN_chosen_by_label                DT_N_S_node_with_props
+#define DT_CHOSEN_chosen_by_label_EXISTS         1
+#define DT_CHOSEN_chosen_by_path                 DT_N_S_node_with_props
+#define DT_CHOSEN_chosen_by_path_EXISTS          1
+#define DT_CHOSEN_chosen_as_string               DT_N_S_node_with_props
+#define DT_CHOSEN_chosen_as_string_EXISTS        1
+```
+
 ### Phandles
 
-### `aliases` and `chosen`
+Having seen labels and the `/chosen` and `/aliases` nodes, we can guess what Zephyr's output for the types `phandle` and `phandles` is - maybe even `path` and `phandle-array` is. Nevertheless, we'll walk through the types using a similar example of what we've already seen in the previous chapter about the devicetree basics.
+
+#### `path`, `phandle` and `phandles`
+
+Let's get started by creating two new files `custom-props-phandles.yaml` and `props-phandles.overlay`:
+
+```bash
+$ tree --charset=utf-8 --dirsfirst.
+├── dts
+│   ├── bindings
+│   │   ├── custom-props-basics.yaml
+│   │   └── custom-props-phandles.yaml
+│   └── playground
+│       ├── props-basics.overlay
+│       └── props-phandles.overlay
+├── src
+│   └── main.c
+├── CMakeLists.txt
+└── prj.conf
+```
+
+Our devicetree overlay is pretty much the same as we've seen in the previous chapter about devicetree basics, but for now we're skipping `phandle-array` properties. Thus, we're creating properties of type `path`, `phandle`, and `phandles`:
+
+```dts
+/ {
+  label_a: node_a { /* Empty. */ };
+  label_b: node_b { /* Empty. */ };
+
+  node_refs {
+    compatible = "custom-props-phandles";
+
+    path-by-path = &{/node_a};
+    path-by-label = &label_a;
+
+    phandle-by-path = <&{/node_a}>;
+    phandle-by-label = <&label_a>;
+
+    // Simple array of phandles
+    phandles = <&{/node_a} &label_b>;
+  };
+};
+```
+
+The matching bindings file has the following contents:
+
+```yaml
+description: Custom properties
+compatible: "custom-props-phandles"
+
+properties:
+  path-by-path:
+    type: path
+  path-by-label:
+    type: path
+  phandle-by-path:
+    type: phandle
+  phandle-by-label:
+    type: phandle
+  phandles:
+    type: phandles
+```
+
+In the build we could just switch out our overlay and ignore `props-basics.overlay`, but let's include both of them instead, remembering that we only need to separate the paths by semicolon:
+
+```bash
+$ rm -rf ../build
+$ west build --board nrf52840dk_nrf52840 --build-dir ../build -- \
+  -DDTC_OVERLAY_FILE="dts/playground/props-basics.overlay;dts/playground/props-phandles.overlay"
+```
+
+The build should succeed without any problems and both overlays should be detected. In the `devicetree_generated.h` we now find all of our new nodes, but we're especially interested in `node_refs` using our new binding `custom-props-phandles.yaml`:
+
+```c
+/*
+ * Devicetree node: /node_refs
+ *
+ * Node identifier: DT_N_S_node_refs
+ *
+ * Binding (compatible = custom-props-phandles):
+ *   /path/to/dts/bindings/custom-props-phandles.yaml
+ */
+// --snip--
+/* Generic property macros: */
+// --snip--
+```
+
+The properties `path-by-path` and `path-by-label` both have the type `path`. We might therefore expect a similar output that we got when specifying paths in the `/chosen` node, namely node identifiers. However, the only output we get is the following:
+
+```c
+#define DT_N_S_node_refs_P_path_by_path_EXISTS 1
+#define DT_N_S_node_refs_P_path_by_label_EXISTS 1
+```
+
+So basically, the `type: path` exists in Zephyr, but at the time of writing does not produce any output - except for the `_EXISTS` macros, which are useless without any additional macros. This may seem surprising, but makes a lot of sense recalling that Zephyr's devicetree is not compiled into a devicetree blob `dtb`, but is instead used or resolved at _compile time_. Paths are of no use since nodes exist only as _identifiers_ and therefore tokens that are used to access a node's properties. At the time of writing, there is in fact not a single binding with in Zephyr that uses a `path`.
+
+Let's move on to the generated output for the properties `phandle-by-path` and `phandle-by-label`:
+
+```c
+#define DT_N_S_node_refs_P_phandle_by_path DT_N_S_node_a
+#define DT_N_S_node_refs_P_phandle_by_path_IDX_0 DT_N_S_node_a
+#define DT_N_S_node_refs_P_phandle_by_path_IDX_0_PH DT_N_S_node_a
+#define DT_N_S_node_refs_P_phandle_by_path_IDX_0_EXISTS 1
+#define DT_N_S_node_refs_P_phandle_by_path_LEN 1
+#define DT_N_S_node_refs_P_phandle_by_path_EXISTS 1
+
+#define DT_N_S_node_refs_P_phandle_by_label DT_N_S_node_a
+#define DT_N_S_node_refs_P_phandle_by_label_IDX_0 DT_N_S_node_a
+#define DT_N_S_node_refs_P_phandle_by_label_IDX_0_PH DT_N_S_node_a
+#define DT_N_S_node_refs_P_phandle_by_label_IDX_0_EXISTS 1
+#define DT_N_S_node_refs_P_phandle_by_label_LEN 1
+#define DT_N_S_node_refs_P_phandle_by_label_EXISTS 1
+```
+
+Zephyr's generator translated either property value into the node's identifier, just like we've seen for the `/aliases` and `/chosen` nodes. The format in which the property's value is provided in the devicetree does not matter for the generated output - which is of the same type `phandle`.
+
+It is a bit surprising, though, that Zephyr also generated macros containing `_IDX_0` and the macro with the suffix `_LEN`: `phandle` typed properties only support a single value (try it out!). The reason for this becomes clear when looking at the output for our property `phandles` of the same-named type:
+
+```c
+#define DT_N_S_node_refs_P_phandles_IDX_0 DT_N_S_node_a
+#define DT_N_S_node_refs_P_phandles_IDX_0_PH DT_N_S_node_a
+#define DT_N_S_node_refs_P_phandles_IDX_0_EXISTS 1
+#define DT_N_S_node_refs_P_phandles_IDX_1 DT_N_S_node_b
+#define DT_N_S_node_refs_P_phandles_IDX_1_PH DT_N_S_node_b
+#define DT_N_S_node_refs_P_phandles_IDX_1_EXISTS 1
+/* --snip-- phandles_FOREACH */
+#define DT_N_S_node_refs_P_phandles_LEN 2
+#define DT_N_S_node_refs_P_phandles_EXISTS 1
+```
+
+Thus, the generated output for `phandle` and `phandles` is essentially handled in the same way. The only difference is, that for `phandles` _only_ the `_IDX_n` macros are generated and thus the _identifiers_ can only be accessed by index, whereas for the `phandle` type it is possible to retrieve the node's identifier using the node identifer and property name. We'll see this when we access _phandles_ via [the devicetree API](#zephyrs-devicetree-api).
+
+In contrast to `array`, `uint8-array`, and `string-array`, no _initializer expression_ is generated - _phandles_ are not values but only tokens and thus cannot be assigned to any variable.
+
+In summary: `path`s practically don't exist in Zephyr, `phandle` and `phandles` essentially produce the same output, and all devicetree references and paths translate to node _identifiers_ - which are just _tokens_.
+
+#### `phandle-array`
+
+Let's briefly recall why we need a `phandle-array`: In the previous chapter about the devicetree basics we've seen how `gpios` are represented by the nRF52840's devicetree (for a detailed explanation, please read the corresponding section in the previous chapter):
+
+##### `phandle-array` in Zephyr
+
+`zephyr/dts/arm/nordic/nrf52840.dtsi`
+```dts
+/ {
+  soc {
+    gpio0: gpio@50000000 {
+      compatible = "nordic,nrf-gpio";
+      #gpio-cells = <2>;
+      port = <0>;
+    };
+
+    gpio1: gpio@50000300 {
+      compatible = "nordic,nrf-gpio";
+      #gpio-cells = <2>;
+      port = <1>;
+    };
+  };
+};
+```
+
+Each instance handles _all_ pins in the corresponding port. However, some other devicetree node, e.g., an LED, needs a way to control and configure a single pin of a given port. We can't do this using a normal _phandle_, e.g., `<&gpio0>`, we need a mechanisim to pass some _parameters_ or _metadata_ along with the _phandle_. `phandle-array`s implement this exact usecase, allowing to pass a predefined number of cells with the _phandle_, e.g., as we can see in the nRF52840's development kit DTS file for `/leds/led_0`:
+
+`zephyr/boards/arm/nrf52840dk_nrf52840/nrf52840dk_nrf52840.dts`
+```dts
+/ {
+  leds {
+    led0: led_0 {
+      gpios = <&gpio0 13 GPIO_ACTIVE_LOW>;
+    };
+  };
+};
+```
+
+What we haven't seen yet, is how we know that the first cell _13_ is the pin within `gpio0`, and the second cell _GPIO_ACTIVE_LOW_ are configuration flags. This is part of the _semantics_ defined by the _binding_ of the _gpio_ nodes that are compatible with `nordic,nrf-gpio`:
+
+`zephyr/dts/bindings/gpio/nordic,nrf-gpio.yaml`
+```yaml
+description: NRF5 GPIO node
+compatible: "nordic,nrf-gpio"
+# --snip--
+
+gpio-cells:
+  - pin
+  - flags
+```
+
+Here we see that `gpio-cells` consists of two items `pin` and `flags`, which are matched exactly against the provided metadata in the given order. Thus, _13_ refers to the `pin` and `GPIO_ACTIVE_LOW` to its `flags`.
+
+You may have noticed that the `gpio` nodes do not conform to the naming convention that we've seen in the last chapter. This makes it a bit awkward to explain what needs to be provided for a `phandle-array` and the referenced nodes. Therefore, we'll build our own from scratch.
+
+##### A `phandle-array` from scratch
+
+Let's also briefly review the rules for using `phandle-array`s. There's no need to understand them out of context, we'll see all of them in action in our example:
+
+- By convention, a `phandle-array` property is plural and its name must thus end in _s_.
+- The value of a `phandle-array` property is an array of phandles, but each phandle is followed by the a pre-defined number of cells for each referenced node.
+- The number of cells that can follow a node's reference is specified by the node's _specifier cells_ property `#<prefix>-cells`.
+- _Specifier cells_ have a defined naming convention: The name is formed by removing the plural '_s_' and attaching '_-cells_' to the name of the `phandle-array` property.
+
+We'll now extend our `props-phandles.overlay` with a new property `phandle-array-of-refs`. Within this property, we'll reference `/node_a` and pass along two cells, and `/node_b` with just one cell as metadata:
+
+`dts/playground/props-phandles.overlay`
+```dts
+/ {
+  label_a: node_a { /* Empty. */ };
+  label_b: node_b { /* Empty. */ };
+  node_refs {
+    compatible = "custom-props-phandles";
+    /* --snip-- */
+    phandle-array-of-refs = <&{/node_a} 1 2 &label_b 1>;
+  };
+};
+```
+
+Within our binding for `custom-props-phandles`, we can now add the property `phandle-array-of-refs` of type `phandle-array`:
+
+`dts/bindings/custom-props-phandles.yaml`
+```yaml
+description: Custom properties
+compatible: "custom-props-phandles"
+
+properties:
+  # --snip--
+  phandle-array-of-refs:
+    type: phandle-array
+```
+
+Here we fulfill our first rule, namely that our property name ends with an 's'. If we'd violate this rule, e.g., by using `phandle-array-of-ref` as property name, the devicetree compiler would reject the binding with the following error:
+
+```
+-- Found devicetree overlay: dts/playground/props-phandles.overlay
+devicetree error: 'phandle-array-of-ref' in 'properties:' in /path/to/dts/bindings/custom-props-phandles.yaml has type 'phandle-array' and its name does not end in 's', but no 'specifier-space' was provided.
+```
+
+The mentioned _specifier-space_ is a way to work around the plural 's' rule and is used for properties that would otherwise result in weird names. We won't explain the workings of _specifier-space_ in this chapter, so I'll leave you with a reference [Zephyr's documentation on specifier-space][zephr-dts-bindings-specifier-space] in case you want to know how this works in detail.
+
+For now, let's revert the change and use `phandle-array-of-refs` as property name and try to compile the project (the command didn't change). Now the devicetree compiler complains that our _specifier-cells_ are missing:
+
+```
+-- Found devicetree overlay: dts/playground/props-phandles.overlay
+devicetree error: <Node /node_a in '/opt/nordic/ncs/v2.4.0/zephyr/misc/empty_file.c'> lacks #phandle-array-of-ref-cells
+```
+
+Looking at our value assignment `phandle-array-of-refs = <&{/node_a} 1 2 &label_b 1>;`, this error makes perfect sense, since the compiler has no way of knowing how may _cells_ are supposed to follow each node reference. We can update our overlay with the required properties for each referenced node:
+
+`dts/playground/props-phandles.overlay`
+```dts
+/ {
+  label_a: node_a { #phandle-array-of-ref-cells = <2>; };
+  label_b: node_b { #phandle-array-of-ref-cells = <1>; };
+  node_refs {
+    /* --snip-- */
+    phandle-array-of-refs = <&{/node_a} 1 2 &label_b 1>;
+  };
+};
+```
+
+Now the devicetree compiler knows, that any reference to `/node_a` in a property of type `phandle-array` must be followed by exactly _2_ cells, whereas a reference to `/node_b` only expects one cell. Does this fix do the trick? Let's try to recompile the example:
+
+```
+-- Found devicetree overlay: dts/playground/props-phandles.overlay
+devicetree error: phandle-array-of-ref controller <Node /node_a in '/opt/nordic/ncs/v2.4.0/zephyr/misc/empty_file.c'> for <Node /node_refs in '/opt/nordic/ncs/v2.4.0/zephyr/misc/empty_file.c'> lacks binding
+```
+
+For `phandle-array`s, Zephyr really requires a binding since it otherwise isn't able to generate the required macros. Without the bindings for our referenced nodes, Zephyr _could_ have been able to generate a partial set of macros, but thankfully it was decided that such incomplete bindings are rejected entirely.
+
+Since the number of required cells in our nodes is different, we need _two separate_ bindings. We'll again use the binding name as filename and create two files `dts/bindings/custom-cells-a.yaml` and `dts/bindings/custom-cells-b.yaml`:
+
+```bash
+$ tree --charset=utf-8 --dirsfirst.
+├── dts
+│   ├── bindings
+│   │   ├── custom-cells-a.yaml
+│   │   ├── custom-cells-b.yaml
+│   │   ├── custom-props-basics.yaml
+│   │   └── custom-props-phandles.yaml
+│   └── playground
+│       ├── props-basics.overlay
+│       └── props-phandles.overlay
+├── src
+│   └── main.c
+├── CMakeLists.txt
+└── prj.conf
+```
+
+Within the binding files, as usual we declare compatibility using `compatible` key. We might expect that `#phandle-array-of-ref-cells` are placed under the _properties_ key in the binding. They are, however, [top level keys][zephyr-dts-bindings-top-level] and give a [_name_][zephyr-dts-bindings-specifier-names] to each cell that follows the reference:
+
+`dts/bindings/custom-cells-a.yaml`
+```yaml
+description: Dummy for matching "cells"
+compatible: "custom-cells-a"
+
+phandle-array-of-ref-cells:
+  - name-of-cell-one
+  - name-of-cell-two
+```
+
+`dts/bindings/custom-cells-a.yaml`
+```yaml
+description: Dummy for matching "cells"
+compatible: "custom-cells-b"
+
+phandle-array-of-ref-cells:
+  - name-of-cell-one
+```
+
+The above binding thus defines a _name_ and **semantics** for each value that follows the corresponding _phandle_ when used in a `phandle-array`. E.g., for `phandle-array-of-refs = <&{/node_a} 1 2 &label_b 1>;`, we now know that:
+- For `/node_a`, the value _1_ is assigned to a cell named `name-of-cell-one` and the value _2_ to a cell named `name-of-cell-two`;
+- for `/node_a`, the cell `name-of-cell-one` is assigned the value _1_.
+
+We're therefore providing the means for the [devicetree API](#zephyrs-devicetree-api) for accessing the _metadata_ passed with the _phandle_ using a descriptive name.
+
+> **Note:** One thing that is not immediately clear is, that number of elements in the `-cells` key of the _binding_ **must** match the number of `-cells = <n>` specified in the _devicetree_. It is, e.g., **not** possible to provide _more_ elements binding's list and restrict the exact number of cells using the matching devicetree property. Thus, for any node that has a binding, the property `-cells` in the devicetree is redundant.
+
+We can now go ahead and assign the bindings to our nodes with the `compatible` property, and recompile the project.
+
+`dts/playground/props-phandles.overlay`
+```dts
+/ {
+  label_a: node_a {
+    compatible = "custom-cells-a";
+    #phandle-array-of-ref-cells = <2>;
+  };
+  label_b: node_b {
+    compatible = "custom-cells-b";
+    #phandle-array-of-ref-cells = <1>;
+  };
+  node_refs {
+    compatible = "custom-props-phandles";
+    /* --snip-- */
+    phandle-array-of-refs = <&{/node_a} 1 2 &label_b 1>;
+  };
+};
+```
+
+For our node `/node_refs`, Zephyr's generator produces the following macros:
+
+```c
+#define DT_N_S_node_refs_P_phandle_array_of_refs_IDX_0_EXISTS 1
+#define DT_N_S_node_refs_P_phandle_array_of_refs_IDX_0_PH DT_N_S_node_a
+#define DT_N_S_node_refs_P_phandle_array_of_refs_IDX_0_VAL_name_of_cell_one 1
+#define DT_N_S_node_refs_P_phandle_array_of_refs_IDX_0_VAL_name_of_cell_one_EXISTS 1
+#define DT_N_S_node_refs_P_phandle_array_of_refs_IDX_0_VAL_name_of_cell_two 2
+#define DT_N_S_node_refs_P_phandle_array_of_refs_IDX_0_VAL_name_of_cell_two_EXISTS 1
+#define DT_N_S_node_refs_P_phandle_array_of_refs_IDX_1_EXISTS 1
+#define DT_N_S_node_refs_P_phandle_array_of_refs_IDX_1_PH DT_N_S_node_b
+#define DT_N_S_node_refs_P_phandle_array_of_refs_IDX_1_VAL_name_of_cell_one 1
+#define DT_N_S_node_refs_P_phandle_array_of_refs_IDX_1_VAL_name_of_cell_one_EXISTS 1
+/* --snip-- phandle_array_of_refs_FOREACH */
+#define DT_N_S_node_refs_P_phandle_array_of_refs_LEN 2
+#define DT_N_S_node_refs_P_phandle_array_of_refs_EXISTS 1
+```
+
+Unsurprisingly, the output looks a lot like what we receive for `phandles`: We get a set of macros for each index _n_ `_IDX_n`, but now the length _n_ `_LEN` is not the total number of _cells_ within the array, but matches the number sets of _phandles and metadata_.
+
+Since each element is no longer a plain _phandle_, a macro with the suffix `_PH` is generated for the _phandle_ and thus node's identifier, and `_VAL_x` macros are generated for each cell that follows the _phandle_; the specifier name _x_ matches the name provided for each specifier in the binding.
+
+Due to the fact that the index within a `phandle-array` does not refer to a cell's value, values for `phandle-array` properties are sometimes assigned using the alternative syntax that we've already seen in the previous chapter:
+- `phandle-array-of-refs = <&{/node_a} 1 2>, <&label_b 1>;` is used instead of
+- `phandle-array-of-refs = <&{/node_a} 1 2 &label_b 1>;`.
+
+The generated output is identical.
+
+### Deleting properties
+
+In our `props-basics.overlay` example we've seen the boolean property `existent-boolean`. We've learned that a boolean is set to _true_ if it exists in the devicetree, otherwise it is _false_. Let's assume that a boolean property exists in some include file, how could you set this property to _false_ in your overlay?
+
+We can try this in our existing `dts/playground/props-basics.overlay`, where we `node_with_props` has `existent-boolean` in its properties and thus sets its value to _true_. Without modifying `node_with_props` directly, we can _delete_ the property after the node's declaration using `/delete-property/`. We'll do this for both, `existent-boolean` and `string`, as follows:
+
+`dts/playground/props-basics.overlay`
+```dts
+/ {
+  label_with_props: node_with_props {
+    compatible = "custom-props-basics";
+    existent-boolean;
+    /* --snip-- */
+  };
+};
+
+&label_with_props {
+  /delete-property/ existent-boolean;
+  /delete-property/ string;
+}
+```
+
+This leads to the same generated output as if the properties were not defined in the node at all. As we've seen, for `boolean`s the property's value is simply set to _0_. For the property `string`, no more macros are generated.
+
+```c
+#define DT_N_S_node_with_props_P_existent_boolean 0
+#define DT_N_S_node_with_props_P_existent_boolean_EXISTS 1
+/* No macros DT_N_S_node_with_props_P_string ... */
+```
 
 ### Full example
 
-
-### Deleting properties
+Instead of providing the full example in text, I'll leave you with a TODO: link to the example application on Github. The overlays and bindings have the same name and content as used throughout the previous sections.
 
 
 
@@ -969,6 +1456,7 @@ TODO: could we create our own little DT_SPEC_GET at least for prop-basic?
 [zephyr-dts-bindings-syntax-include]: https://docs.zephyrproject.org/latest/build/dts/bindings-syntax.html#include
 [zephyr-dts-bindings-syntax-properties]: https://docs.zephyrproject.org/latest/build/dts/bindings-syntax.html#properties
 [zephyr-dts-bindings-syntax-bus]: https://docs.zephyrproject.org/latest/build/dts/bindings-syntax.html#bus
+[zephyr-dts-api]: https://docs.zephyrproject.org/latest/build/dts/api/api.html
 
 <!--
 [zephyr-kconfig]: https://docs.zephyrproject.org/latest/build/kconfig/index.html#configuration-system-kconfig

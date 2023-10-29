@@ -35,3 +35,11 @@
     enum-string = "whatever";
   };
 };
+
+// The following shows how a property can be "unset" or deleted:
+/*
+&label_with_props {
+  /delete-property/ existent-boolean;
+  /delete-property/ string;
+};
+*/
