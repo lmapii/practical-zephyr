@@ -44,3 +44,5 @@ https://blog.benjamin-cabe.com/2023/08/23/enabling-codechecker-for-your-zephyr-r
 
 emulator also here
 https://docs.zephyrproject.org/latest/develop/application/index.html#application-configuration-directory
+
+https://github.com/zephyrproject-rtos/example-application

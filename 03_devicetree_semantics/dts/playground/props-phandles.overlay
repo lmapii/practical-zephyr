@@ -1,13 +1,17 @@
 / {
   label_a: node_a {
     compatible = "custom-cells-a";
-    // // The value assignment for the cells is redundant in Zephyr, since
-    // // the binding already specifies all names and thus the size.
+    // The value assignment for the cells is redundant in Zephyr, since
+    // the binding already specifies all names and thus the size.
     #phandle-array-of-ref-cells = <2>;
+    // - name for cell 0: "name-of-cell-one"
+    // - name for cell 1: "name-of-cell-two"
+    dummy-value = <0xc0ffee>;
   };
   label_b: node_b {
     compatible = "custom-cells-b";
     #phandle-array-of-ref-cells = <1>;
+    // - name for cell 0: "name-of-cell-one"
   };
 
   node_refs {
@@ -33,6 +37,6 @@
     // Equivalent to `phandles = <&{/node_a} &label_b>;`
     phandles = <&{/node_a}>, <&label_b>;
     // Equivalent to `phandle-array-of-refs = <&{/node_a} 1 2 &label_b 1>;`
-    phandle-array-of-refs = <&{/node_a} 1>, <2 &label_b 3>;
+    phandle-array-of-refs = <&{/node_a} 1 2>, <&label_b 3>;
   };
 };

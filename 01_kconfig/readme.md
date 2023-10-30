@@ -893,6 +893,7 @@ This header file contains the configured value of the `USR_FUN` symbol as macro:
 
 Looking at the [official documentation of the `-imacros` option for `gcc`][gcc-imacros], you'll find that this option acquires all the macros of the specified header without also processing its declarations. Thus, all macros within the `autoconf.h` files are also available at compile time.
 
+TODO: output! "Message in a user function"
 
 
 ## Summary

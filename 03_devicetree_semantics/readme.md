@@ -33,12 +33,18 @@
   - [Macrobatics](#macrobatics)
   - [Node identifiers](#node-identifiers)
   - [Property values](#property-values)
+    - [Simple values](#simple-values)
+    - [Scalar values](#scalar-values)
+  - [`phandle`s](#phandles-1)
+  - [Specifier cells in `phandle-array`s](#specifier-cells-in-phandle-arrays)
 - [Summary](#summary)
 - [Further reading](#further-reading)
 
 ## Goals
 
 TODO: rename to devicetree_bindings?
+
+TODO: solid base in case you'll eventually be writing device drivers with their own bindings.
 
 ## Prerequisites
 
@@ -521,6 +527,8 @@ In contrast to overlays, however, detected bindings are not listed in the build 
 ## Bindings by example
 
 This is it, we're finally there! We'll now add bindings for our [extended example application](#extending-the-example-application) to get some generated output for our node's properties. We've just seen that we can place our bindings in the [`dts/bindings` directory](#bindings-directory).
+
+> **Note:** TODO: only basics and only simple properties.
 
 ### Naming
 
@@ -1359,7 +1367,7 @@ For our node `/node_refs`, Zephyr's generator produces the following macros:
 
 Unsurprisingly, the output looks a lot like what we receive for `phandles`: We get a set of macros for each index _n_ `_IDX_n`, but now the length _n_ `_LEN` is not the total number of _cells_ within the array, but matches the number sets of _phandles and metadata_.
 
-Since each element is no longer a plain _phandle_, a macro with the suffix `_PH` is generated for the _phandle_ and thus node's identifier, and `_VAL_x` macros are generated for each cell that follows the _phandle_; the specifier name _x_ matches the name provided for each specifier in the binding.
+Along the macro with the suffix `_PH` containing the _phandle_ and thus node's identifier, `_VAL_x` macros are generated for each cell that follows the _phandle_; the specifier name _x_ matches the name provided for each specifier in the binding.
 
 Due to the fact that the index within a `phandle-array` does not refer to a cell's value, values for `phandle-array` properties are sometimes assigned using the alternative syntax that we've already seen in the previous chapter:
 - `phandle-array-of-refs = <&{/node_a} 1 2>, <&label_b 1>;` is used instead of
@@ -1407,6 +1415,8 @@ Instead of providing the full example in text, I'll leave you with a TODO: link 
 Now that we've seen both, DTS files and their bindings, we'll wrap up this chapter by looking at how the generated macros are accessed in an application. We'll cover the most common macros from `zephyr/include/zephyr/devicetree.h`. Those macros are the basis for most Zephyr modules, e.g., `gpio`s, that in turn provide their own devicetree API built on top of the mentioned macros.
 
 > **Note:** For details, you'll always need to refer to the [official devicetree API documentation][zephyr-dts-api] and to the corresponding subsystems. The documentation is pretty amazing and has lots of examples. We'll cover the basics here so that you can easily navigate the documentation.
+
+In the following sections, we'll be accessing the properites of the nodes that we've created throughout this chapter. In case you didn't follow along but still would like to try it out yourself, use the freestanding application in the reference repository (TODO: ref). It also contains most code snippets in its `main.c` file.
 
 ### Macrobatics
 
@@ -1538,26 +1548,336 @@ The macro `DT_PATH` is a _variadic_ macro which allows retrieving a node's ideni
 
 ### Property values
 
+Using the [node identifiers](#node-identifiers) and the property's name in "lowercase-and-underscores" form, we can access the property's value using the macro `DT_PROP`. The macro is very straight forward since all it needs to do is paste the node ID, separated by `_P_` with the provided property name.
 
+> **Note:** Have a look at the documentation of `DT_PROP`. You'll find that its documentation matches what we've seen for each type in the section about [basic types](#basic-types) (only enumerations are not explicitly mentioned in `DT_PROP`'s documentation).
 
+In `props-basics.overlay`, we defined several properties that we'll now access using the devicetree API:
 
-from devicetree to C structure -> done via DT_ macros, e.g., GPIO_DT_SPEC_GET
-TODO: could we create our own little DT_SPEC_GET at least for prop-basic?
+`dts/playground/props-phandles.overlay`
+```dts
+/ {
+  label_with_props: node_with_props {
+    compatible = "custom-props-basics";
+    existent-boolean;
+    int = <1>;
+    array = <0xA second_value: 0xB 0xC>;
+    uint8-array = [ 12 34  ];
+    string = string_value: "foo bar baz";
+    string-array = "foo", "bar", "baz";
+    enum-int = <200>;
+    enum-string = "whatever";
+  };
+};
+```
 
-### Macrobatics
+#### Simple values
 
+A unurprising but common pattern that you'll see in Zephr modules that use the devicetree API, are types that map to a node's properties. This is especially prominent in device drivers that use [instance based APIs][zephyr-dts-api-instance], e.g., `DT_INST_PROP`.
 
-## Practice run
+> **Note:** Instance based APIs are in general recommended for use within device drivers. For the sake of simplicity, we've only specified individual nodes and don't use multiple instances. Refer to the [official documentation][zephyr-dts-api-instance] for details.
 
-### `status`
+The following is an overly simplified example that retrieves all one-dimensional values from the node `/node_with_props`:
 
-### Remapping `uart0`
+```c
+typedef struct
+{
+    bool boolean_exists;
+    int32_t int_value;
+    char *string_value;
+    int32_t enum_int_value;
+    char *enum_string_value;
+} values_t;
 
-### Switching boards
+const values_t values = {
+    .boolean_exists    = DT_PROP(NODE_PROPS_ALIAS_BY_LABEL, existent_boolean),
+    .int_value         = DT_PROP(NODE_PROPS_ALIAS_BY_PATH, int),
+    .string_value      = DT_PROP(NODE_PROPS_ALIAS_BY_STRING, string),
+    .enum_int_value    = DT_PROP(NODE_PROPS_CHOSEN_BY_PATH, enum_int),
+    .enum_string_value = DT_PROP(NODE_PROPS_CHOSEN_BY_LABEL, enum_string),
+};
+
+printk("values = {\n");
+printk("  .boolean_exists     = %d\n", values.boolean_exists);    // = 1
+printk("  .int_value          = %d\n", values.int_value);         // = 1
+printk("  .string_value       = %s\n", values.string_value);      // = "foo bar baz"
+printk("  .enum_int_value     = %d\n", values.enum_int_value);    // = 200
+printk("  .enum_string_value  = %s\n", values.enum_string_value); // = "whatever"
+printk("}\n");
+```
+
+Knowing that all of the given node identifiers resolve to `DT_N_S_node_with_props`, we can easily determine the macros and thus values pasted by `DT_PROP` that we've already seen in the [section about basic types](#basic-types):
+
+- `DT_N_S_node_with_props_P_existent_boolean`
+- `DT_N_S_node_with_props_P_int`
+- `DT_N_S_node_with_props_P_string`
+- `DT_N_S_node_with_props_P_enum_int`
+- `DT_N_S_node_with_props_P_enum_string`
+
+For our enumerations `enum-int` and `enum-string`, additional macros such as `DT_ENUM_IDX` exist to access the index of the selected value within its list of possible values. This can be useful, e.g., to avoid string comparisons in enumerations that use the type `string`.
+
+```c
+// DT_ENUM_IDX resolves to DT_N_S_node_with_props_P_enum_int_ENUM_IDX
+// "The index within 'enum_int' of the selected value '200' is 1."
+printk(
+    "The index within 'enum_int' of the selected value '%d' is %d.\n",
+    values.enum_int_value,
+    DT_ENUM_IDX(NODE_PROPS_CHOSEN_AS_STRING, enum_int));
+
+// DT_ENUM_IDX resolves to DT_N_S_node_with_props_P_enum_string_ENUM_IDX
+// "The index within 'enum_string' of the selected value 'whatever' is 0."
+printk(
+    "The index within 'enum_string' of the selected value '%s' is %d.\n",
+    values.enum_string_value,
+    DT_ENUM_IDX(NODE_PROPS_CHOSEN_AS_STRING, enum_string));
+```
+
+Enumerations and strings also allow to retrieve a _token_ matching its value. Such tokens can be used, e.g., to create unique variable names during compile time. Tokens can also be used to declare structure fields (though this is mostly done with [specifier cells](#specifier-cells)). For the sake of completeness, we'll declare a variable using the `string` property's value as token:
+
+```c
+// Resolves to DT_N_S_node_with_props_P_string_STRING_TOKEN
+// and thus the variable name foo_bar_baz.
+#define STRING_TOKEN DT_STRING_TOKEN(NODE_PROPS_BY_PATH, string)
+
+uint8_t STRING_TOKEN = 0U;
+STRING_TOKEN += 1U;
+printk("STRING_TOKEN = %d\n", STRING_TOKEN);
+```
+
+#### Scalar values
+
+As we've seen in the [basic types section](#basic-types), the macros for scalar types provide initializer lists and can therefore also be assigned to variable length arrays. In addition, a `_LEN` macro is generated, accessible via the `DT_PROP_LEN`:
+
+```c
+// cell_array = {10 /* 0xa */, 11 /* 0xb */, 12 /* 0xc */};
+const uint32_t cell_array[] = DT_PROP(NODE_PROPS_BY_LABEL, array);
+// bytestring = {18 /* 0x12 */, 52 /* 0x34 */};
+const uint8_t bytestring[]  = DT_PROP(NODE_PROPS_BY_PATH, uint8_array);
+
+const size_t cell_array_exp_length = DT_PROP_LEN(NODE_PROPS_BY_LABEL, array);
+const size_t bytestring_exp_length = DT_PROP_LEN(NODE_PROPS_BY_LABEL, uint8_array);
+
+if ((cell_array_exp_length != (sizeof(cell_array) / sizeof(uint32_t))) ||
+    (bytestring_exp_length != (sizeof(bytestring) / sizeof(uint8_t))))
+{
+    // This is unreachable code, since the `_LEN` macro matches the
+    // number of elements in the generated initializer list.
+    printk("Something's wrong!\n");
+}
+```
+
+Scalar types also provide `_FOREACH` macros. These macros are expanded for each element in the scalar type during compile time and thus apply a given macro for each element. The following shows how to use the `DT_FOREACH_PROP_ELEM` macro, which in turn uses the generated macro of the corresponding property:
+
+```c
+#define PRINTK_STRING(node_id, prop, idx)                                \
+    do                                                                   \
+    {                                                                    \
+        printk("[%d] -- %s\n", idx, DT_PROP_BY_IDX(node_id, prop, idx)); \
+    } while (0);
+
+// This expands to one printk statement for each element in /node_with_props's
+// property string-array _at compile-time_.
+DT_FOREACH_PROP_ELEM(NODE_PROPS_BY_LABEL, string_array, PRINTK_STRING);
+// [0] -- foo
+// [1] -- bar
+// [2] -- baz
+```
+
+### `phandle`s
+
+We've seen that properties of the types [`phandle` and `phandles`](#path-phandle-and-phandles) produce the same output, with the only difference that the output of `phandle` only generates a single set of macros. Since the values of _phandle_ macros are still just _node identifiers_, we need to make a tiny adaption for our referenced `/node_a`; we're adding the property `dummy-value` of type `int` in the overlay:
+
+`dts/playground/props-phandles.overlay`
+```dts
+/ {
+  label_a: node_a {
+    compatible = "custom-cells-a";
+    #phandle-array-of-ref-cells = <2>;
+    dummy-value = <0xc0ffee>;
+  };
+  label_b: node_b {
+    compatible = "custom-cells-b";
+    #phandle-array-of-ref-cells = <1>;
+  };
+
+  node_refs {
+    compatible = "custom-props-phandles";
+    // --snip--
+    phandle-by-path = <&{/node_a}>;
+    phandle-by-label = <&label_a>;
+    phandles = <&{/node_a} &label_b>;
+    // --snip--
+  };
+};
+```
+
+An update of the binding is also necessary, since otherwise the Zephyr generator does not produce any output.
+
+`dts/bindings/custom-cells-a.yaml`
+```yaml
+description: Dummy for matching "cells"
+compatible: "custom-cells-a"
+
+properties:
+  dummy-value:
+    type: int
+# --snip--
+```
+
+Reading the _phandles_ from a value for `phandle` or `phandles` properties is possible using the `DT_PHANDLE` and `DT_PHANDLE_BY_IDX` devicetree macros. The former can only be used for `phandle` types, whereas the latter is usable by both, since both types provide the required macros including indices `_IDX`:
+
+```c
+// Identifier of /node_refs.
+#define NODE_REFS DT_PATH(node_refs)
+
+// Identifiers of /node_a and /node_b via the phandle properties in /node_refs.
+#define NODE_A_PHANDLE_BY_LABEL DT_PHANDLE(NODE_REFS, phandle_by_label)
+#define NODE_A_PHANDLE_BY_PATH  DT_PHANDLE(NODE_REFS, phandle_by_path)
+#define NODE_A_PHANDLES         DT_PHANDLE_BY_IDX(NODE_REFS, phandle_array, 0)
+#define NODE_B_PHANDLES         DT_PHANDLE_BY_IDX(NODE_REFS, phandle_array, 1)
+```
+
+> **Note:** Technically, it is also possible to read a `phandle` property using `DT_PROP`. However, it is highly recommended to use the correct macros instead.
+
+The macros with the prefix `NODE_A_` resolve to `DT_N_S_node_a`, and `NODE_B_PHANDLES` to `DT_N_S_node_b`. Once you have the node's identifier, you can access its properties as usual, e.g., our newly added `dummy-value`, using the `DT_PROP` macro:
+
+```c
+uint32_t val_from_prop = DT_PROP(NODE_A_PHANDLE_BY_LABEL, dummy_value);
+```
+
+However, Zephyr's devicetree API also contains the macros `DT_PROP_BY_PHANDLE` and `DT_PROP_BY_PHANDLE_IDX`, which allow reading a property's value without having to retrieve the node identifier using the corresponding `DT_PHANDLE` macros first:
+
+```c
+uint32_t val_from_phandle_by_label = DT_PROP_BY_PHANDLE(NODE_REFS, phandle_by_label, dummy_value);
+uint32_t val_from_phandle_by_path  = DT_PROP_BY_PHANDLE(NODE_REFS, phandle_by_path, dummy_value);
+uint32_t val_from_phandles         = DT_PROP_BY_PHANDLE_IDX(NODE_REFS, phandles, 0, dummy_value);
+```
+
+### Specifier cells in `phandle-array`s
+
+We've seen how `phandle-array`s are specified in DTS files, and how to create the [corresponding bindings](#phandle-array). Now we'll finally see how to _access_ the entries in `phandle-array-of-ref-cells` in our `props-phandles.overlay`:
+
+`dts/playground/props-phandles.overlay`
+```dts
+/ {
+  label_a: node_a {
+    compatible = "custom-cells-a";
+    #phandle-array-of-ref-cells = <2>;
+    // - name for cell 0: "name-of-cell-one"
+    // - name for cell 1: "name-of-cell-two"
+    dummy-value = <0xc0ffee>;
+  };
+  label_b: node_b {
+    compatible = "custom-cells-b";
+    #phandle-array-of-ref-cells = <1>;
+    // - name for cell 0: "name-of-cell-one"
+  };
+
+  node_refs {
+    compatible = "custom-props-phandles";
+    // --snip--
+    phandle-array-of-refs = <&{/node_a} 1 2 &label_b 1>;
+  };
+};
+```
+
+In the above devicetree source we see that `phandle-array-of-refs` has two entries:
+- The _phandle_ for `/node_a` followed by two specifier cells _1_ and _2_,
+- the _phandle_ for `/node_b` followed by the specifier cell _1_.
+
+> **Note:** Remember that to know where one entry starts and the next entry ends, it is necessary to check the `#<name>-cells` property of the referenced node. Typically, a _phandle_ marks the start of a new entry. The alternative syntax `<&{/node_a} 1 2>, <&label_b 1>` can be used to make the separation more visible.
+
+Looking into the binding, we can also retrieve the _names_ of the corresponding cells:
+- In the metadata for `/node_a`:
+  - _1_ is the value for the cell with the name _name-of-cell-one_
+  - _2_ is the value for the cell with the name _name-of-cell-two_
+- In the metadata for `/node_b`:
+  - _1_ is the value for the cell with the name _name-of-cell-one_
+
+The above example is a bit unfortunate since it is very uncommon for a `phandle-array` to contain specifiers for different node types: `/node_a` and `/node_b` in the above example have nothing in common, and the specifier cell with index _0_ wouldn't even need to have the same name.
+
+Nevertheless, we'll now squash them into the same self-defined structure using the devicetree macros `DT_PHA_BY_IDX` and `DT_PHA_BY_IDX_OR`:
+
+```c
+typedef struct
+{
+    uint32_t cell_one;
+    uint32_t cell_two;
+} node_spec_t;
+
+#define NODE_DT_SPEC_GET_BY_IDX(node_id, prop, idx)                            \
+    {                                                                          \
+        .cell_one = DT_PHA_BY_IDX(node_id, prop, idx, name_of_cell_one),       \
+        .cell_two = DT_PHA_BY_IDX_OR(node_id, prop, idx, name_of_cell_two, 0), \
+    }
+
+// node_a = {.cell_one = 1, .cell_two = 2};
+node_spec_t node_a = NODE_DT_SPEC_GET_BY_IDX(NODE_REFS, phandle_array_of_refs, 0);
+// node_b = {.cell_one = 1, .cell_two = 0};
+node_spec_t node_b = NODE_DT_SPEC_GET_BY_IDX(NODE_REFS, phandle_array_of_refs, 1);
+
+// configure_node(node_a);
+// configure_node(node_b);
+```
+
+As we can see, the _names_ of the specifier cells must be known by the application; it is not possible to access the specifier cells by their index. The above example is again a simplified version of how devicetree APIs are used by device drivers: The node's specification is retrieved using a devicetree macro, and the specification is then passed along to the corresponding API function.
+
+We'll see how this works in detail in the next chapter, where we'll retrieve the associated `gpio` using `GPIO_DT_SPEC_GET`, and pass the specification to the matching `gpio_pin_configure_dt` function. We could, e.g., imagine writing a driver for a board's LEDs:
+
+`zephyr/boards/arm/nrf52840dk_nrf52840/nrf52840dk_nrf52840.dts`
+```dts
+/ {
+  leds {
+    led0: led_0 {
+      // gpio0: compatible = "nordic,nrf-gpio";
+      gpios = <&gpio0 13 GPIO_ACTIVE_LOW>;
+      // gpio-cells:
+      //   - pin
+      //   - flags
+    };
+  };
+};
+```
+
+The following is some pseudo code, showing how a driver could provide a macro to assemble the GPIO configuration for the LED pin:
+
+```c
+#define LED_GPIO_SPEC_GET_BY_IDX(node_id, idx)                 \
+    {                                                          \
+        .pin   = DT_PHA_BY_IDX(node_id, gpios, idx, pin),      \
+        .flags = DT_PHA_BY_IDX_OR(node_id, gpios, idx, flags), \
+    }
+
+// The application can then assemble its GPIO device specification ...
+const device_spec_t led_gpio = LED_GPIO_SPEC_GET_BY_IDX(DT_NODELABEL(led0), 0);
+// ... and use it in the corresponding API function.
+(void) led_gpio_configure_dt(&led_gpio);
+```
+
+What's also shown in our own example is an `_OR` type macro: Such macros exist for practically all "normal" devicetree macros and allow providing a default value in case the property does not exist - meaning its `_EXISTS` macro is _not defined_. Since `/node_b` does not have a specifier cell named `name-of-cell-two`, the field `cell_two` in its `node_spec_t` is always set to zero.
+
+Without using conditional compilation or the `_OR` macro, any access would not compile, e.g.:
+
+```c
+(void) DT_PHA_BY_IDX(NODE_REFS, phandle_array_of_refs, 1, name_of_cell_two);
+```
+
+With that said and done, let's wrap up this chapter.
 
 ## Summary
 
+Didn't look at "nexus" nodes.
+
+the goal was to have a proper understanding and a solid base in case you need to explore more. this we fulfilled (?)
+
 ## Further reading
+
+definitely instance based APIs.
+
+More examples either in the API documentation, but also in the tests!
+`zephyr/dts/bindings/test`
+`zephyr/tests/lib/devicetree/api/src/main.c`
+
 
 [nordicsemi]: https://www.nordicsemi.com/
 [nordicsemi-academy-devicetree]: https://academy.nordicsemi.com/topic/devicetree/ters
@@ -1573,21 +1893,10 @@ TODO: could we create our own little DT_SPEC_GET at least for prop-basic?
 [zephyr-dts-bindings-syntax-include]: https://docs.zephyrproject.org/latest/build/dts/bindings-syntax.html#include
 [zephyr-dts-bindings-syntax-properties]: https://docs.zephyrproject.org/latest/build/dts/bindings-syntax.html#properties
 [zephyr-dts-bindings-syntax-bus]: https://docs.zephyrproject.org/latest/build/dts/bindings-syntax.html#bus
+[zephr-dts-bindings-specifier-space]: https://docs.zephyrproject.org/latest/build/dts/bindings-syntax.html#specifier-space
+[zephyr-dts-bindings-top-level]: https://docs.zephyrproject.org/latest/build/dts/bindings-syntax.html#top-level-keys
+[zephyr-dts-bindings-specifier-names]: https://docs.zephyrproject.org/latest/build/dts/bindings-syntax.html#specifier-cell-names-cells
 [zephyr-dts-api]: https://docs.zephyrproject.org/latest/build/dts/api/api.html
+[zephyr-dts-api-instance]: https://docs.zephyrproject.org/latest/build/dts/api/api.html#devicetree-inst-apis
 
-<!--
-[zephyr-kconfig]: https://docs.zephyrproject.org/latest/build/kconfig/index.html#configuration-system-kconfig
-[zephyr-dts]: https://docs.zephyrproject.org/latest/build/dts/index.html
-[zephyr-dts-howto]: https://docs.zephyrproject.org/latest/build/dts/howtos.html
-[zephyr-dts-bindings-api]: https://docs.zephyrproject.org/latest/build/dts/api/bindings.html
-[zephyr-dts-bindings-types]: https://docs.zephyrproject.org/latest/build/dts/bindings-syntax.html#type
-[zephyr-dts-intro-bindings-properties]: https://docs.zephyrproject.org/latest/build/dts/intro-syntax-structure.html#properties
-[zephyr-dts-intro-input-and-output]: https://docs.zephyrproject.org/latest/build/dts/intro-input-output.html
-[zephyr-dts-intro-property-values]: https://docs.zephyrproject.org/latest/build/dts/intro-syntax-structure.html#writing-property-values
-[zephyr-dts-phandles]: https://docs.zephyrproject.org/latest/build/dts/phandles.html
-
-[zephyr-dts-bindings-location]: https://docs.zephyrproject.org/latest/build/dts/bindings-intro.html#where-bindings-are-located
-[zephr-dts-bindings-specifier-cells]: https://docs.zephyrproject.org/latest/build/dts/bindings-syntax.html#specifier-cell-names-cells
-[zephyr-dts-api-chosen]: https://docs.zephyrproject.org/latest/build/dts/api/api.html#devicetree-chosen-nodes
-[zephyr-kconfig]: https://docs.zephyrproject.org/latest/build/kconfig/index.html#configuration-system-kconfig
-[zephyr-summit-22-devicetree]: https://www.youtube.com/watch?v=w8GgP3h0M8M&list=PLzRQULb6-ipFDwFONbHu-Qb305hJR7ICe -->
+[zephyr-summit-22-devicetree]: https://www.youtube.com/watch?v=w8GgP3h0M8M&list=PLzRQULb6-ipFDwFONbHu-Qb305hJR7ICe

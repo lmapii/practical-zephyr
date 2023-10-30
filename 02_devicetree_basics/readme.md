@@ -317,7 +317,6 @@ Now we finally take a closer look at the devicetree syntax and its files. We'll 
 TODO: "virtual", not really compiling?
 
 Let's start from scratch. We create an empty devicetree source file `.dts` with the following empty tree:
-TODO: details in [DEVICETREE SOURCE (DTS) FORMAT (VERSION 1)][devicetree-spec]
 
 ```dts
 /dts-v1/;
@@ -325,6 +324,8 @@ TODO: details in [DEVICETREE SOURCE (DTS) FORMAT (VERSION 1)][devicetree-spec]
 ```
 
 TODO: C style (`/* ... \*/`) and C++ style (`//`) comments are supported.
+TODO: won't explain braces and semicolon placing, the compiler will complain.
+TODO: details in [DEVICETREE SOURCE (DTS) FORMAT (VERSION 1)][devicetree-spec]
 
 The first line contains the _tag_ `/dts-v1/;` identifies the file as a version _1_ devicetree source file. Without this tag, the devicetree compiler would treat the file as being of the obsolete version _0_ - which is incompatible with the current major devicetree version _1_. The tag `/dts-v1/;` is therefore required when working with Zephyr. Following the version tag is an empty devicetree: It's only _node_ is the _root node_, identified by convention by a forward slash `/`.
 
@@ -363,7 +364,7 @@ Node names can also have and an optional, hexadecimal _unit-address_, specified 
 
 The _unit-address_ can be used to distinguish between several subnodes of the same type. It can be a real register address, typically a base address, e.g., the base address of the register space of a specific UART interface, but also a plain instance number, you when describing a multi-core MCU by using a `/cpus` node, with two instances `cpu@0` and `cpu@1` for each CPU core.
 
-The fact that the _unit-address_ is also used for the register address of a device is also the reason why each node with a _unit-address_ **must** have the property `reg` - and any node _without_ a _unit-address_ must _not_ have the property `reg`. While we don't know anything about the exact syntax of the property and its value yet, clearly seems redundant redundant in the above example. In a real devicetree, however, the `reg` property usually provides more information and can therefore be seen as a more detailed view of the addressable resources within a node.
+The fact that the _unit-address_ is also used for the register address of a device is also the reason why each node with a _unit-address_ **must** have the property `reg` - and any node _without_ a _unit-address_ must _not_ have the property `reg`. While we don't know anything about the exact syntax of the property and its value yet, clearly seems redundant in the above example. In a real devicetree, however, the `reg` property usually provides more information and can therefore be seen as a more detailed view of the addressable resources within a node.
 
 Let's finish up on the node name with a convention that ensures, that each node in the devicetree can be uniquely identified by specifying its full _path_. For any node name and property at the same level in the tree:
 - in the case of _node-name_ without an _unit-address_ the _node-name_ should be unique,
