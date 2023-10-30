@@ -31,6 +31,8 @@
   - [Full example](#full-example)
 - [Zephyr's devicetree API](#zephyrs-devicetree-api)
   - [Macrobatics](#macrobatics)
+  - [Node identifiers](#node-identifiers)
+  - [Property values](#property-values)
 - [Summary](#summary)
 - [Further reading](#further-reading)
 
@@ -1400,29 +1402,144 @@ This leads to the same generated output as if the properties were not defined in
 Instead of providing the full example in text, I'll leave you with a TODO: link to the example application on Github. The overlays and bindings have the same name and content as used throughout the previous sections.
 
 
-
-
-Devicetree nodes are matched to bindings using their compatible properties.
-
 ## Zephyr's devicetree API
 
-`lowercase-and-underscores` form (!!) due to macros
-`zephyr/include/zephyr/devicetree.h`
+Now that we've seen both, DTS files and their bindings, we'll wrap up this chapter by looking at how the generated macros are accessed in an application. We'll cover the most common macros from `zephyr/include/zephyr/devicetree.h`. Those macros are the basis for most Zephyr modules, e.g., `gpio`s, that in turn provide their own devicetree API built on top of the mentioned macros.
 
+> **Note:** For details, you'll always need to refer to the [official devicetree API documentation][zephyr-dts-api] and to the corresponding subsystems. The documentation is pretty amazing and has lots of examples. We'll cover the basics here so that you can easily navigate the documentation.
+
+### Macrobatics
+
+Having seen the macros provided by Zephyr's generator script, it's pretty obvious how nodes and property values are accessed by Zephyr's devicetree API: The big "mistery" behind the devicetree API is simply _token pasting_. In its simplest form, tokens are pasted or concatenated using the token-pasting operator `##`:
+
+```c
+// Let's assume we use macros with the format <identifier>_<property>,
+// e.g., a "node" with property "string_value" set to "123-test"
+#define node_string_value "123-test"
+
+// Tokens in C macros are pasted using `##`.
+#define TOKEN_CAT_3(a1, a2, a3)      a1##a2##a3
+#define NODE_PROP(node_id, property) TOKEN_CAT_3(node, _, string_value)
+
+// The following resolves to `node_string_value` and thus to "123-test"
+static const char *str = NODE_PROP(NODE, string_value);
 ```
-/* Node's full path: */
-#define DT_N_S_node_with_phandle_PATH "/node_with_phandle"
 
-/* Node parent (/) identifier: */
-#define DT_N_S_node_with_phandle_PARENT DT_N
+Zephyr takes token pasting to another level in its devicetree API, using variadic macro arguments, macro repetitions, and other neat tricks. In his presentation ["Zephyr Devicetree Mysteries, Solved"][zephyr-summit-22-devicetree] at the _Zephyr Development Summit 2022_, Bolivar fittingly describes those mechanisms as "macrobatics".
+
+I highly recommend watching [his presentation][zephyr-summit-22-devicetree] (maybe after reading through this chapter), and if you're curious, digging into `util_macro.h` and `util_loops.h` in `zephyr/include/zephyr/sys`. The files are very well documented, and the macros `MACRO_MAP_CAT` (used by the `DT_PATH`) and `IS_ENABLED` (resolving the `_EXISTS` macros) are especially interesting.
+
+### Node identifiers
+
+Let's review how we can reference a node in the devicetree using our `props-basics.overlay`:
+
+`dts/playground/props-basics.overlay`
+```dts
+/ {
+  aliases {
+    alias-by-label = &label_with_props;
+    alias-by-path = &{/node_with_props};
+    alias-as-string = "/node_with_props";
+  };
+
+  chosen {
+    chosen-by-label = &label_with_props;
+    chosen-by-path = &{/node_with_props};
+    chosen-as-string = "/node_with_props";
+  };
+
+  label_with_props: node_with_props {
+    /* ... */
+  };
+};
 ```
 
-`#define DT_N_NODELABEL_<>`
-there is no DT_P_LABEL (no property or value label), only DT_NODELABEL
-`#define DT_N_ALIAS_<>`
+> **Note:** We're deliberatly skipping references to a node using `phandle` properties since those are _properties_, and properties are accessed differently, as we'll see in the next section (yes, technically node references in `/chosen` and `/aliases` are properties too, but those nodes are predefined by the [devicetree specification][devicetree-spec]).
 
-`/* Generic property macros: */`
-`#define DT_N_S_<node>_P_`
+Having thoroughly explored devicetree, we know that we have the following possibilities to refer to a node:
+- Using the `/aliases` or `/chosen` nodes,
+- using a globally unique _node label_,
+- or via the node's full _path_.
+
+As we've seen in the previous chapter about the devicetree basics, it is up to you to decide what you want to use in your application. It typically might make sense to use `/aliases` or `/chosen` nodes, since paths and even node labels can be different for, e.g., different boards.
+
+How can we reference nodes? We know that nodes as such do not exist in Zephyr's generated devicetree: Nodes are translated into _tokens_ and do not have any value on their own. In Zephyr these tokens are referred to as _node identifiers_ and they are used as parameters by other macros, e.g., to retrieve a property value. Such tokens are practically just prefixes for property macros.
+
+Enough talk. Let's start with `/aliases`: Zephyr provides the `DT_ALIAS` macro get a node's identifier via its alias:
+
+```c
+// Node identifier by /aliases node.
+// DT_ALIAS(alias) = DT_N_ALIAS_ ## alias
+#define NODE_PROPS_ALIAS_BY_LABEL   DT_ALIAS(alias_by_label)
+#define NODE_PROPS_ALIAS_BY_PATH    DT_ALIAS(alias_by_path)
+#define NODE_PROPS_ALIAS_BY_STRING  DT_ALIAS(alias_as_string)
+```
+
+The `DT_ALIAS` macro simply pastes `DT_N_ALIAS_` and the given identifier and therefore resolves to the macros that we've already seen in the section about [`aliases` and `chosen`](#aliases-and-chosen). In turn, all alias macros resolve to the node identifier `DT_N_S_node_with_props`.
+
+| API                         | Pasted macro                 | Node identifier          |
+| :-------------------------- | :--------------------------- | :----------------------- |
+| `DT_ALIAS(alias_by_label)`  | `DT_N_ALIAS_alias_by_label`  | `DT_N_S_node_with_props` |
+| `DT_ALIAS(alias_by_path)`   | `DT_N_ALIAS_alias_by_path`   | `DT_N_S_node_with_props` |
+| `DT_ALIAS(alias_as_string)` | `DT_N_ALIAS_alias_as_string` | `DT_N_S_node_with_props` |
+
+You might have noticed that the properties in the DTS file use _dashes_, e.g., "`alias-by-label`", whereas in the code we need to replace the dashes by _underscores_ for the alias name, resulting in `alias_by_label`. We've learned this transformation in the section about [understanding devicetree macro names](#understanding-devicetree-macro-names). The macros in the API, however, cannot change the format of their parameters and thus identifiers. Therefore, you have to perform the _"lowercase-and-underscores"_ transformation for all identifiers passed to devicetree API macros:
+
+- All letters are converted to lowercase,
+- and non-alphanumerics characters are converted to underscores "`_`".
+
+No other transformations are needed, e.g., you'll never need to provide a path with `/` replaced by `_S_` or prefix devicetree macros yourself. The devicetree API does that for you and provides macros for __all__ such usecases.
+
+As mentioned before, the resulting _node identifer_ `DT_N_S_node_with_props` is only a _token_. No macro with the same name exists, the following search does not yield any results:
+
+```bash
+$ grep -E 'DT_N_S_node_with_props[ \t]' \
+  ../build/zephyr/include/generated/devicetree_generated.h
+$
+```
+
+Therefore we cannot use a node identifier on its own anywhere in the code. Well, since it is a _token_, technically we could use it, e.g., as variable name, but that is not the point. The point is, the `C` preprocessor cannot further resolve the macro, and wherever you'd use the identifier `DT_N_S_node_with_props`, it would be placed as such text (not string literal) in code.
+
+Moving on! Just like for `/aliases`, Zephyr provides the `DT_CHOSEN` macro get a node's identifier via the `/chosen` node:
+
+```c
+// Node identifier by /chosen node.
+// DT_CHOSEN(chosen) = DT_N_CHOSEN_ ## chosen
+#define NODE_PROPS_CHOSEN_BY_LABEL  DT_CHOSEN(chosen_by_label)
+#define NODE_PROPS_CHOSEN_BY_PATH   DT_CHOSEN(chosen_by_path)
+#define NODE_PROPS_CHOSEN_AS_STRING DT_CHOSEN(chosen_as_string)
+```
+
+The `DT_CHOSEN` macro simply pastes `DT_N_CHOSEN_` and the given identifier and again resolves to the macros that we've seen in the section about [`aliases` and `chosen`](#aliases-and-chosen). Just like the aliases, all chosen nodes resolve to the node identifier `DT_N_S_node_with_props`:
+
+| API                           | Pasted macro                   | Node identifier          |
+| :---------------------------- | :----------------------------- | :----------------------- |
+| `DT_CHOSEN(chosen_by_label)`  | `DT_N_CHOSEN_chosen_by_label`  | `DT_N_S_node_with_props` |
+| `DT_CHOSEN(chosen_by_path)`   | `DT_N_CHOSEN_chosen_by_path`   | `DT_N_S_node_with_props` |
+| `DT_CHOSEN(chosen_as_string)` | `DT_N_CHOSEN_chosen_as_string` | `DT_N_S_node_with_props` |
+
+This leaves us with node labels and retrieving a node's identifier by its path. Zephyr provides the two macros `DT_NODELABEL` and `DT_PATH` for this:
+
+```c
+// Node identifier by label.
+// DT_NODELABEL(label) = DT_N_NODELABEL_ ## label
+#define NODE_PROPS_BY_LABEL DT_NODELABEL(label_with_props)
+
+// Node identifier by path.
+// DT_PATH(...) = DT_N_ pasted with S_<node> for all nodes in the path.
+#define NODE_PROPS_BY_PATH  DT_PATH(node_with_props)
+```
+
+The `DT_NODELABEL` is again a simple token pasting of `DT_N_NODELABEL_` and the provided _label_, resulting in the macro `DT_N_NODELABEL_label_with_props` that we've seen in the section about [labels and paths](#labels-and-paths), which again resolves to the node identifier `DT_N_S_node_with_props`.
+
+The macro `DT_PATH` is a _variadic_ macro which allows retrieving a node's idenitifier using its full path. The path to a node is specified by the sequence of nodes, starting at the root node `/`. Each argument is thus a _node identifier_; the root node `/` is omitted. The devicetree API simply pastes `DT_N` and `_S_<node>` for each node (in "lowercase-and-underscores" form) in the path, resulting in the _identifier_ `DT_N_S_node_with_props`.
+
+> **Note:** The path `/soc/uart@40002000` is an example for a node with several levels, obtained using `DT_PATH(soc, uart_40002000)`. Notice that it is **not** possible to use node labels in paths.
+
+### Property values
+
+
+
 
 from devicetree to C structure -> done via DT_ macros, e.g., GPIO_DT_SPEC_GET
 TODO: could we create our own little DT_SPEC_GET at least for prop-basic?

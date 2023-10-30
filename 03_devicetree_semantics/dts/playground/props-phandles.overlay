@@ -9,6 +9,7 @@
     compatible = "custom-cells-b";
     #phandle-array-of-ref-cells = <1>;
   };
+
   node_refs {
     compatible = "custom-props-phandles";
 

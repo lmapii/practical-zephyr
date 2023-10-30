@@ -14,6 +14,9 @@
 
 ## Practice run
 
+Kconfig: Memfault
+Devicetree: routing a gpio and rerouting uart.
+
 ### `status`
 
 ### `pinctrl` - remapping `uart0`
