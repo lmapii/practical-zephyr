@@ -10,6 +10,7 @@
   label_b: node_b {
     #phandle-array-of-ref-cells = <1>;
   };
+
   node_refs {
     // Properties of type `path`
     path-by-path = &{/node_a};
@@ -29,7 +30,7 @@
     phandles = <&{/node_a}>, <&label_b>;
     phandle-array-of-refs = <&{/node_a} 1>, <2 &label_b 3>;
   };
-  
+
   node_with_phandle {
     // It is allowed to explicitly provide the phandle's value, but the
     // DTS generator does this for us.

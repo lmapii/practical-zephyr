@@ -416,7 +416,7 @@ Let's have a look at what we can find out about `/soc/uart@40002000`'s `current-
 };
 ```
 
-Zephyr recursively looks for devicetree bindings in `zephyr/dts/bindings`. Bindings are matched against the strings provided in the `compatible` property. Thus, for our UART node, Zephyr looks for a binding that matches `nordic,nrf-uarte.yaml`. Conveniently, bindings in Zephyr use the same basename as the `compatible` string, and thus we can find the correct binding by searching for a file called `nordic,nrf-uarte.yaml`, which can be found in the `serial` bindings subfolder:
+Zephyr recursively looks for devicetree bindings (`.yaml` files) in `zephyr/dts/bindings`. Bindings are matched against the strings provided in the `compatible` property of a node. Thus, for our UART node, Zephyr looks for a binding that matches `nordic,nrf-uarte`. Conveniently, bindings in Zephyr use the same basename as the `compatible` string, and thus we can find the correct binding by searching for a file called `nordic,nrf-uarte.yaml`, which can be found in the `serial` bindings subfolder:
 
 `zephyr/dts/bindings/serial/nordic,nrf-uarte.yaml`
 ```yaml
@@ -425,7 +425,7 @@ compatible: "nordic,nrf-uarte"
 include: ["nordic,nrf-uart-common.yaml", "memory-region.yaml"]
 ```
 
-Checking the _compatible_ key, we see that it indeed matches the node's property. Notice that this key's value is what is matched against the property, _not_ the filename. Theoretically, the file could have a different name, but by convention matches the _compatible_ key.
+Checking the _compatible_ key, we see that it indeed matches the node's _compatible_ property. Notice that Zephyr does _not_match the filename against the string in the node's _compatible_ property, but it checks the _compatible_ key in the binding. In theory, the file could have a different name, but by convention the filename matches the _compatible_ key.
 
 Apart from _compatible_, the binding also has a textual _description_ and some *include*s. As the name suggests, the _include_ key allows to include the content of other bindings. Files are included by filename without specifying any paths or directories - Zephyr determines the search paths, one of which includes all subfolders of `zephyr/dts/bindings`. For the exact syntax, have a look at the [official documentation][zephyr-dts-bindings-syntax-include].
 
@@ -474,7 +474,7 @@ properties:
 
 Now, we finally know that `current-speed` is of type `int` and is used to configure the initial baud rate setting for UART (though the descriptio fails to mention that the baud rate is specified in _bits per second_). We can only select from a pre-defined list of baud rates and cannot specify our own custom baud rate - at least not in the devicetree. Given this _binding_, the devicetree compiler now rejects any but the allowed values, and it is therefore not possible to specify a syntactically correct value that is not an integer of the given list.
 
-> **Note:** The `bus: uart` is a special key that allows you to associate devices to a bus system, e.g., I2C, SPI or UART. This feature is especially useful if a device supports multiple bus types, e.g., a sensor that can be connected via SPI or I2C. This is out of scope for this chapter, though, but is explained perfectly in the [official documentation][zephyr-dts-bindings-syntax-bus].
+> **Note:** The `bus: uart` is a special key that allows you to associate devices to a bus system, e.g., I2C, SPI or UART. This feature is especially useful if a device supports multiple bus types, e.g., a sensor that can be connected either via SPI or I2C. This is out of scope for this chapter, though, but is explained perfectly in the [official documentation][zephyr-dts-bindings-syntax-bus].
 
 What about the `status`? As you might have guessed, we need to take yet another step down the include tree and have a look at the `base.yml` binding. This binding contains common fields used by _all_ devices in Zephyr. Here, we not only encounter the `status` property, but also the `compatible` property:
 
@@ -501,9 +501,9 @@ properties:
   # --snip--
 ```
 
-Thus, _status_ is simply a property of type `string` with pre-defined values that can be assigned in the devicetree. It indicates the operational status of a device, which we'll see in action in a later section.
+Thus, _status_ is simply a property of type `string` with pre-defined values that can be assigned in the devicetree. It indicates the operational status of a device, which we'll see in action the practical example in the next chapter.
 
-While going through binding files may seem tedious, the include tree depth is usually quite small, and once you know the base bindings such as `base.yaml`, it typically comes down to a handfull of files. There is, however, no "flattened" output file like `build/zephyr/zephyr.dts`, and therefore it is always necessary to walk through the bindings. We'll have a quick look at [Nordic's][nordicsemi] plugin for _Visual Studio Code_ later, but thus far you'll always need to look at the source files. The following shows the include tree of `nordic,nrf-uarte.yaml` at the time of writing:
+While going through binding files may seem tedious, the include tree depth is usually quite small, and once you know the base bindings such as `base.yaml`, it typically comes down to a handfull of files. There is, however, no "flattened" output file like `build/zephyr/zephyr.dts`, and therefore it is always necessary to walk through the bindings. We'll have a quick look at [Nordic's][nordicsemi] plugin for _Visual Studio Code_ in a later chapter, but thus far you'll always need to look at the source files. The following shows the include tree of `nordic,nrf-uarte.yaml` at the time of writing:
 
 ```
 nordic,nrf-uarte.yaml
@@ -565,7 +565,7 @@ properties:
     type: string
 ```
 
-Bindings define a node's properties under the key _properties_. The above is the simplest form for a property in a binding, and has the following form:
+Bindings define a node's properties under the key _properties_. The template given below is the simplest form for a property in a binding, and has the following form:
 
 ```yaml
 properties:
@@ -574,7 +574,7 @@ properties:
     # required: false -> omitted by convention if false
 ```
 
-Properties have a _name_ and are therefore unique within the node, and each property is assigned a _type_ using the corresponding key. Other keys are such as _required_ are optional.
+Properties have a _name_ and are therefore unique within the node, and each property is assigned a _type_ using the corresponding key. Other keys such as _required_ are optional.
 
 There are several other keys and "features", e.g., it is possible to define the properties for _children_ of a node with the matching `compatible` property, but we'll only have a look at the very basics. Definitely dive into [Zephyr's official documentation][zephyr-dts-bindings-syntax] once you're through with this chapter!
 

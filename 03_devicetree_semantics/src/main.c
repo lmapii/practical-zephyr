@@ -321,7 +321,7 @@ void main(void)
     print_phandle_array_values();
 
     // Real-world example:
-    printk("The configured UART baud rate is %d", DT_PROP(DT_PATH(soc, uart_40002000), current_speed));
+    printk("The configured UART baud rate is %d bits/s.\n", DT_PROP(DT_PATH(soc, uart_40002000), current_speed));
 
     while (1)
     {
