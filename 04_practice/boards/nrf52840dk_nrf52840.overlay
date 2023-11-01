@@ -1,1 +1,9 @@
-//
+/ {
+    chosen {
+        app-led = &led0;
+    };
+};
+
+&uart0 {
+    status = "okay";
+};

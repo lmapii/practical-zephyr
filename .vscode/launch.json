@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "nRF52840_xxAA - attach",
+      "device": "nRF52840_xxAA",
+      "cwd": "${workspaceFolder}",
+      // relative path to the .elf file relative to cwd.
+      "executable": "build/zephyr/zephyr.elf",
+      // only attaching since "west debug" launches the gdb server.
+      "request": "attach",
+      "type": "cortex-debug",
+      // "runToEntryPoint": "main", -- ignored for "attach"
+      "servertype": "jlink",
+      // in case you're sourcing "setup.sh" before launching vscode, you can use the environment variable:
+      // "gdbPath": "${env:ZEPHYR_SDK_INSTALL_DIR}/arm-zephyr-eabi/bin/arm-zephyr-eabi-gdb"
+      // sadly, the following doesn't work even when using the nRF toolchain installer:
+      // "gdbPath": "${nrf-connect.toolchain:2.4.0}/arm-zephyr-eabi/bin/arm-zephyr-eabi-gdb"
+      // otherwise, it is necessary to specify the full path to the gdb executable:
+      "gdbPath": "/opt/nordic/ncs/toolchains/4ef6631da0/opt/zephyr-sdk/arm-zephyr-eabi/bin/arm-zephyr-eabi-gdb"
+    }
+  ]
+}

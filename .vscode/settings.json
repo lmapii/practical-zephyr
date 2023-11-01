@@ -12,7 +12,13 @@
   "nrf-connect.toolchain.path": "${nrf-connect.toolchain:2.4.0}",
   "nrf-connect.topdir": "${nrf-connect.sdk:2.4.0}",
   "kconfig.zephyr.base": "${nrf-connect.sdk:2.4.0}",
-  "nrf-connect.applications": ["${workspaceFolder}/01_kconfig"],
+  // The Kconfig GUI only works in case the build folder is in the application's root directory.
+  "nrf-connect.applications": [
+    "${workspaceFolder}/01_kconfig",
+    "${workspaceFolder}/02_devicetree_basics",
+    "${workspaceFolder}/03_devicetree_semantics",
+    "${workspaceFolder}/04_practice"
+  ],
 
   "markdown-pdf.format": "A4",
   "markdown-pdf.styles": [".vscode/markdown-pdf.css"]
