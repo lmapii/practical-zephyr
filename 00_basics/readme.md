@@ -19,8 +19,9 @@ https://gist.github.com/mbinna/c61dbb39bca0e4fb7d1f73b0d66a4fd1
   - [`CMakeLists.txt`](#cmakeliststxt)
   - [Building the application](#building-the-application)
   - [Building with West](#building-with-west)
-- [A quick glance at IDE Integrations](#a-quick-glance-at-ide-integrations)
+- [A quick glance at IDE integrations](#a-quick-glance-at-ide-integrations)
 - [Flashing and debugging](#flashing-and-debugging)
+  - [Debugging with `vscode`](#debugging-with-vscode)
 - [Summary](#summary)
 - [Further reading](#further-reading)
 
@@ -222,8 +223,6 @@ Notice that this is a plain infinite loop and it doesn't make any use of threads
 
 ### `CMakeLists.txt`
 
-TODO: set(BOARD ...) not to be used
-
 Now we come to the heart of this first step towards Zephyr: The build configuration. In case you're not familiar at all with *CMake*, there exist several articles and even books about ["Effective Modern CMake"][cmake-gist]: *CMake* has evolved significantly, and only certain patterns should be used for new applications.
 
 Let's go through the steps to create our [CMakeLists.txt](CMakeLists.txt) for this empty application:
@@ -235,18 +234,15 @@ set(BOARD nrf52840dk_nrf52840)
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 ```
 
-TODO: real required minimal version
-`zephyr/cmake/modules/zephyr_default.cmake`
-
-- `cmake_minimum_required` just indicates the allowed CMake versions.
+- `cmake_minimum_required` just indicates the allowed CMake versions. Zephyr has it's own requirements and maintains its minimal required CMake version in `zephyr/cmake/modules/zephyr_default.cmake`.
 - The `set` function writes the board that we're building our application for to the variable `BOARD`. This step is optional and can actually be specified during the build step as parameter.
 - Then we go ahead and load `Zephyr` using the `find_package` function. In our [setup script][#creating-a-setup-script] we've exported the `ZEPHYR_BASE` environment variable which is now passed as a hint to the `find_package` function to locate the correct Zephyr installation.
 
 > **Note:** There are several ways to use the Zephyr CMake package, each of which is described in detail in the [Zephyr CMake Package documentation][zephyr-cmake-pkg]. Have a look at the [Zephyr CMake package source code][zephyr-cmake-pkg-source] for details.
 
-As mentioned, setting the `BOARD` variable is optional and usually only done if you want to build for only one board. The value for the `BOARD` can be chosen in different ways, e.g., using an environment variable. The Zephyr build system determines the final value for `BOARD` in a pre-defined order; refer to the [documentation for the application CMakeLists.txt][zephyr-cmakelists-app] for details.
+As mentioned, setting the `BOARD` variable is optional and usually not done. The value for the `BOARD` can be chosen in different ways, e.g., using an environment variable, or passed as parameter during the build. The Zephyr build system determines the final value for `BOARD` in a pre-defined order; refer to the [documentation for the application CMakeLists.txt][zephyr-cmakelists-app] for details.
 
-> **Note**: TODO: update. Personally, while experimenting I typically specify the `BOARD` in the `CMakeLists.txt` file since I don't really remember the exact board names. You can always dump the list of supported boards using the command `west boards`.
+> **Note**: Zephyr's goal is to support multiple boards and multiple MCUs. Once we'll switch to using `west` for building, it makes sense to pass the board as parameter and _not_ specify it in `CMakeLists.txt`. In case you're having troubles remembering the exact board name, you can always dump the list of supported boards using the command `west boards`.
 
 Now that Zephyr is available, we can go ahead and add the application:
 
@@ -287,7 +283,7 @@ endmacro()
 
 ### Building the application
 
-With the [CMakeLists.txt](CMakeLists.txt) in place we can go ahead and build the application. There are several ways to do this and if you're familiar with CMake the below commands are no surprise. What we want to show, however, is the slight differences between using CMake or West when building your application. Lets first use CMake:
+With the [CMakeLists.txt](CMakeLists.txt) in place we can go ahead and build the application. There are several ways to do this and if you're familiar with CMake the below commands are no surprise. What we want to show, however, is the slight differences between using CMake or `west` when building your application. Lets first use CMake:
 
 ```bash
 $ cmake -B ../build
@@ -348,11 +344,11 @@ manifest.path=nrf
 manifest.file=west.yml
 zephyr.base=zephyr
 build.board=nrf52840dk_nrf52840
-# It is also possible to delete the option again
+# It is also possible to delete the option
 # using `west config -d build.board`
 ```
 
-> **Note:** The west configuration options can also be used to define arguments for CMake. This can be useful when debugging or when defining your own CMake caches, refer to the [documentation][zephyr-west-cmake-cfg] for details.
+> **Note:** The `west` configuration options can also be used to define arguments for CMake. This can be useful when debugging or when defining your own CMake caches, refer to the [documentation][zephyr-west-cmake-cfg] for details.
 
 Now we can run `west build` in our current terminal without specifying a board.
 
@@ -360,16 +356,16 @@ Now we can run `west build` in our current terminal without specifying a board.
 $ west build -d ../build
 ```
 
-One last parameter for `west build` that is worth mentioning is `--pristine`: Instead deleting the `build` folder, you can also use the `--pristine` to generate a new build system:
+One last parameter for `west build` that is worth mentioning is `--pristine`: Instead deleting the `build` folder, you can also use the `--pristine` to generate a new build:
 
 ```bash
 $ west build -d ../build --pristine
 ```
 
 
-## A quick glance at IDE Integrations
+## A quick glance at IDE integrations
 
-TODO: here
+TODO: continue here
 
 as mentioned, IDEs are intentionally ignored since this is up to you
 but here are a few hints
@@ -384,9 +380,13 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE CACHE BOOL
 )
 ```
 
+nRF integration - just a little too much and also conflicts with the very popular CMake extension, which is a pity and a dealbreaker for me. I don't need another file explorer within an extension.
+
 ## Flashing and debugging
 
 TODO: just explain what's underneath the calls to "west flash" and "west debug" (runners)
+
+### Debugging with `vscode`
 
 
 ## Summary

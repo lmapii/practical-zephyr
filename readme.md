@@ -13,8 +13,9 @@ concept: practical zephyr as guide, read in official documentation, back to prac
 basically a more extensive getting started guide
 problem with zephr docs is that there is so much information that is not yet relevant when learning zephr.
 
+ever changing but kconfig and devicetree are here to stay, so this guide aims to understand the fundamentals
 
-more chapters
+more chapters?
 - build optimizations (COMPILER_OPTIMIZATIONS Kconfig),
 - build flags (activate well known/helpful warnings !!)
 - testing with twister

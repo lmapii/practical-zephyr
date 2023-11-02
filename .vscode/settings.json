@@ -21,5 +21,8 @@
   ],
 
   "markdown-pdf.format": "A4",
-  "markdown-pdf.styles": [".vscode/markdown-pdf.css"]
+  "markdown-pdf.styles": [".vscode/markdown-pdf.css"],
+
+  // The "build" folder is quite important so it is annoying that vscode excludes it by default.
+  "search.useIgnoreFiles": false
 }
