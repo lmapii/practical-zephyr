@@ -5,7 +5,6 @@
   "[cpp]": {
     "editor.formatOnSave": true
   },
-  "cmake.configureOnOpen": false,
   "C_Cpp.default.compileCommands": "build/compile_commands.json",
 
   // The following settings are required to use nRF Kconfig
@@ -24,5 +23,11 @@
   "markdown-pdf.styles": [".vscode/markdown-pdf.css"],
 
   // The "build" folder is quite important so it is annoying that vscode excludes it by default.
-  "search.useIgnoreFiles": false
+  "search.useIgnoreFiles": false,
+
+  // Try to silence cmake extension.
+  "cmake.configureOnOpen": false,
+  "cmake.configureOnEdit": false,
+  "cmake.automaticReconfigure": false,
+  "cmake.buildBeforeRun": false
 }
