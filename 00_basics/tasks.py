@@ -1,6 +1,14 @@
-# pylint: disable=expression-not-assigned
 import logging
 from invoke import task
+
+
+def __runall__(c, msg, cmds):
+    print("###")
+    print("###")
+    print("###")
+    print(f"### {msg}")
+    print("###")
+    [c.run(cmd) for cmd in cmds]  # pylint: disable=expression-not-assigned
 
 
 @task
@@ -15,30 +23,36 @@ def build(c, board="nrf52840dk_nrf52840"):
 
 @task
 def ci(c):
-    logging.info("Plain CMake demo")
-    cmds = [
-        "rm -rf build",
-        "cmake -B build -DBOARD=nrf52dk_nrf52832",
-        "cmake --build build -- -j4",
-    ]
-    [c.run(cmd) for cmd in cmds]
+    __runall__(
+        c,
+        "Plain CMake demo",
+        [
+            "rm -rf build",
+            "cmake -B build -DBOARD=nrf52dk_nrf52832",
+            "cmake --build build -- -j4",
+        ],
+    )
 
-    logging.info("west demo")
-    cmds = [
-        "rm -rf build",
-        "west build --board nrf52840dk_nrf52840",
-    ]
-    [c.run(cmd) for cmd in cmds]
+    __runall__(
+        c,
+        "west demo",
+        [
+            "rm -rf build",
+            "west build --board nrf52840dk_nrf52840",
+        ],
+    )
 
-    logging.info("west config demo")
-    cmds = [
-        "west config -l",
-        "west config build.board nrf52840dk_nrf52840",
-        "rm -rf build",
-        "west build",
-        "west build --pristine",
-        "west config -d build.board",
-    ]
-    [c.run(cmd) for cmd in cmds]
+    __runall__(
+        c,
+        "west config demo",
+        [
+            "west config -l",
+            "west config build.board nrf52840dk_nrf52840",
+            "rm -rf build",
+            "west build",
+            "west build --pristine",
+            "west config -d build.board",
+        ],
+    )
 
     c.run("rm -rf build")

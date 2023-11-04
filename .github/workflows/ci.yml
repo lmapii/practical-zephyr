@@ -62,7 +62,7 @@ jobs:
           docker load --input /tmp/docker/${{ runner.os }}-builder-image.tar
           docker image ls -a
       -
-        name: Build library
+        name: Build
         run: |
           docker run \
             --rm \

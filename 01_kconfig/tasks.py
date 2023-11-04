@@ -1,12 +1,13 @@
-# pylint: disable=expression-not-assigned
 from invoke import task
 
 
 def __runall__(c, msg, cmds):
-    print("\n")
-    print(msg)
-    print("\n")
-    [c.run(cmd) for cmd in cmds]
+    print("###")
+    print("###")
+    print("###")
+    print(f"### {msg}")
+    print("###")
+    [c.run(cmd) for cmd in cmds]  # pylint: disable=expression-not-assigned
 
 
 @task
