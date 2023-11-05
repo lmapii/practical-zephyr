@@ -13,6 +13,7 @@
   "kconfig.zephyr.base": "${nrf-connect.sdk:2.4.0}",
   // The Kconfig GUI only works in case the build folder is in the application's root directory.
   "nrf-connect.applications": [
+    "${workspaceFolder}/00_basics",
     "${workspaceFolder}/01_kconfig",
     "${workspaceFolder}/02_devicetree_basics",
     "${workspaceFolder}/03_devicetree_semantics",

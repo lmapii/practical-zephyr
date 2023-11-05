@@ -6,4 +6,6 @@ thumbs.db
 **/build
 # build/cmake_install.cmake
 
+# list of private files lying around in my never clean repositories.
 pasted*
+leftovers*

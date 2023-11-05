@@ -6,8 +6,6 @@
 
 void main(void)
 {
-    // Zephyr is only of limited use without threads:
-    // https://docs.zephyrproject.org/latest/kernel/services/threads/nothread.html#nothread
     while (1)
     {
         k_msleep(SLEEP_TIME_MS);

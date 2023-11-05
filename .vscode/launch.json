@@ -7,11 +7,13 @@
       "cwd": "${workspaceFolder}",
       // relative path to the .elf file relative to cwd.
       "executable": "build/zephyr/zephyr.elf",
-      // only attaching since "west debug" launches the gdb server.
-      // TODO: what's the benefit of using "west debug" instead of launching ourselves?
-      "request": "attach",
+      // use `attach` if you run "west debug" to launch the gdb server.
+      // "request": "attach",
+      // use `launch` to start gdb from within vscode.
+      "request": "launch",
       "type": "cortex-debug",
-      // "runToEntryPoint": "main", -- ignored for "attach"
+      // runToEntryPoint is ignored for "attach"
+      "runToEntryPoint": "main",
       "servertype": "jlink",
       // in case you're sourcing "setup.sh" before launching vscode, you can use the environment variable:
       // "gdbPath": "${env:ZEPHYR_SDK_INSTALL_DIR}/arm-zephyr-eabi/bin/arm-zephyr-eabi-gdb"

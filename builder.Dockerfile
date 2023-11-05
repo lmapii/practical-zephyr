@@ -1,6 +1,15 @@
+# This is just a demo setup of the environment tailored to the nRF SDK.
+# The nRF SDK is not necessary to follow along the examples in this repository, but it is
+# recommended, since the examples also use an nRF development kit for some "hands on".
+#
+# This Dockerfile also fully initializes Zephyr for use with freestanding applications, which
+# isn't something you'd typically do with a workspace application. Instead, it is recommended
+# to rely on the files provided by Zephyr (or the vendor), e.g.,
+# https://github.com/zephyrproject-rtos/docker-image
+
 ARG base_tag=bullseye
-# ARG base_img=mcr.microsoft.com/vscode/devcontainers/base:dev-${base_tag}
-ARG base_img=debian:${base_tag}
+ARG base_img=mcr.microsoft.com/vscode/devcontainers/base:dev-${base_tag}
+# ARG base_img=debian:${base_tag}
 
 FROM --platform=linux/amd64 ${base_img} AS builder-install
 
@@ -48,6 +57,9 @@ RUN wget -O arm-gcc.tgz "https://developer.arm.com/-/media/Files/downloads/gnu-r
 
 RUN /opt/gcc-arm-none-eabi-9-2019-q4-major/bin/arm-none-eabi-gcc --version
 
+# instead of installing the toolchain manually, the Zephyr SDK could be used:
+# https://github.com/zephyrproject-rtos/sdk-ng
+
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # update python packages
 
@@ -76,6 +88,7 @@ RUN apt-get install -y --no-install-recommends \
     && apt-get -y autoremove \
     && rm -rf /var/lib/apt/lists/*
 
+# install the nRF SDK, which includes Zephyr.
 WORKDIR /workspaces
 RUN west init -m https://github.com/nrfconnect/sdk-nrf --mr ${sdk_nrf_revision} sdk-nrf && \
     cd sdk-nrf && west update --narrow -o=--depth=1
@@ -99,4 +112,3 @@ ENV XDG_CACHE_HOME=/workspaces/.cache
 # install invoke
 
 RUN python3 -m pip install invoke
-
