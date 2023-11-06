@@ -237,7 +237,7 @@ Navigate to the symbol either using the search or using the path _Subsystems and
 
 ![Screenshot menuconfig-debug](../assets/kconfig-menuconfig-debug.png?raw=true "menuconfig Debuggin Options")
 
-Typically, you can toggle options using `Space` or `Enter`, but this does not seem to be possible for `PRINTK`. You can see that a symbol cannot be changed - which is indicated by the symbol being enclosed by two dashes `-*-` instead of square brackets `[*]`. Using `?` we can display the symbol's information:
+Typically, you can toggle options using `Space` or `Enter`, but this does not seem to be possible for `PRINTK`. You can see that a symbol cannot be changed - which is indicated by the marker `-*-` instead of `[*]`. Using `?` we can display the symbol's information:
 
 ```
 Name: PRINTK
