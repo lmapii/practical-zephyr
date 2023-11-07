@@ -81,7 +81,7 @@ void main(void)
 }
 ```
 
-The following command builds this application for the [nRF52840 Development Kit from Nordic][nordicsemi] that we're using as reference. As usual, you can follow along with any board (or emulation target) and you should see a similar output.
+The following command builds this application for the [nRF52840 Development Kit from Nordic][nordicsemi] that we're using as a reference. As usual, you can follow along with any board (or emulation target) and you should see a similar output.
 
 ```bash
 $ west build --board nrf52840dk_nrf52840 --build-dir ../build

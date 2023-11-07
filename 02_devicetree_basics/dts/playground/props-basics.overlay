@@ -4,7 +4,7 @@
 / {
   aliases {
     // `aliases` is a standard child-node of the root node defined by the DTSpec.
-    // Aliases cannot be used as references in the devicetree itself, but are
+    // Aliases cannot be used as a references in the devicetree itself, but are
     // used within the applicaiton as an alternative name for a node.
     alias-by-label = &label_equivalent;
     alias-by-path = &{/node_with_equivalent_arrays};
@@ -34,13 +34,13 @@
     existent-boolean;
     int = <1>;
     array = <1 2 3>;
-    uint8-array = [ 12 34 ];
+    uint8-array = [ 12 34  ];
     string = "foo";
     string-array = "foo", "bar", "baz";
   };
   label_equivalent: node_with_equivalent_arrays {
     // No spaces needed for uint8-array values.
-    uint8-array = [ 1234 ];
+    uint8-array = [ 12 34  ];
     // Alternative syntax for arrays.
     array = <1>, <2>, <3>;
     int = <1>;

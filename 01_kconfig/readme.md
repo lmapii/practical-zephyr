@@ -951,6 +951,7 @@ Finally, have a look at the files in the [accompanying GitHub repository][practi
 
 [nordicsemi]: https://www.nordicsemi.com/
 [nordicsemi-academy]: https://academy.nordicsemi.com/
+[nrf-connect-sdk-fundamentals]: https://academy.nordicsemi.com/courses/nrf-connect-sdk-fundamentals
 [nordicsemi-academy-kconfig]: https://academy.nordicsemi.com/courses/nrf-connect-sdk-fundamentals/lessons/lesson-3-elements-of-an-nrf-connect-sdk-application/topic/configuration/
 [nordicsemi-nrf52840-dk]: https://www.nordicsemi.com/Products/Development-hardware/nrf52840-dk
 
