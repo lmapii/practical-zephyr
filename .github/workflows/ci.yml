@@ -44,9 +44,10 @@ jobs:
       fail-fast: false
       matrix:
         tuple:
-          - { root: '00_basics',            invoke: 'ci' }
-          - { root: '01_kconfig',           invoke: 'ci' }
-          - { root: '02_devicetree_basics', invoke: 'ci' }
+          - { root: '00_basics',               invoke: 'ci' }
+          - { root: '01_kconfig',              invoke: 'ci' }
+          - { root: '02_devicetree_basics',    invoke: 'ci' }
+          - { root: '03_devicetree_semantics', invoke: 'ci' }
     steps:
       - uses: actions/checkout@v3
       - uses: docker/setup-buildx-action@v2

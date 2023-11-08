@@ -1154,7 +1154,7 @@ The following is the generated output for the two nodes `/node_with_props` and `
 
 `/build/zephyr/zephyr.dts`
 ```
-/{
+/ {
   node_with_props {
     existent-boolean;
     int = < 0x1 >;
