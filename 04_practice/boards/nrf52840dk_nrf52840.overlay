@@ -2,8 +2,21 @@
     chosen {
         app-led = &led0;
     };
+    /*
+    node_a {
+        compatible = "custom-cells-a";
+        #gpio-cells = <3>;
+    }; */
 };
 
 &uart0 {
     status = "okay";
 };
+
+// In theory, it is possible to pass _any_ phandle to `gpios`, as long as the referred node has
+// a #gpio-cells property. Using the below assignment, however, will fail as soon as the GPIO
+// API is used, since the specifiers have different names.
+/*
+&led0 {
+    gpios = <&{/node_a} 1 2 3>;
+}; */

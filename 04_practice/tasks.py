@@ -1,5 +1,5 @@
 """
-Invoke tasks for the 02_devicetree_semantics demo.
+Invoke tasks for the 04_practice demo.
 This file exists mainly for simplyfing the CI configuration.
 """
 
@@ -16,12 +16,6 @@ def ci(c):
     __runall__(
         c,
         "Plain west build",
-        [
-            "rm -rf build",
-            "west build --board nrf52840dk_nrf52840 -- "
-            + '-DDTC_OVERLAY_FILE="'
-            + "dts/playground/props-basics.overlay;"
-            + 'dts/playground/props-phandles.overlay"',
-        ],
+        ["rm -rf build", "west build --board nrf52840dk_nrf52840"],
     )
     c.run("rm -rf build")

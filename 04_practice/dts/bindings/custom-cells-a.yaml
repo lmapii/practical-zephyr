@@ -1,0 +1,6 @@
+description: Dummy for matching "cells"
+compatible: "custom-cells-a"
+gpio-cells:
+  - name-of-cell-one
+  - name-of-cell-two
+  - name-of-cell-three

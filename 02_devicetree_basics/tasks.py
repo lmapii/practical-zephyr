@@ -1,5 +1,5 @@
 """
-Invoke tasks for the 01_kconfig demo.
+Invoke tasks for the 02_devicetree_basics demo.
 This file exists mainly for simplyfing the CI configuration.
 """
 

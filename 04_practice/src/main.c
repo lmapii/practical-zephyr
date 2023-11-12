@@ -31,17 +31,18 @@ static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED_NODE, gpios);
 #error "LED node status is not okay."
 #endif
 
-#define SLEEP_TIME_MS 500U
+#define SLEEP_TIME_MS 1000U
 
 void main(void)
 {
-    int err = 0;
+    int err   = 0;
+    bool tick = true;
 
     /*
      * While devicetree macros are quite straightforward, for runtime functions such as
      * `gpio_is_ready_dt` the connection to the devicetree is sometimes harder to understand.
      * In case you're going down the rabbit hole trying to understand how `gpio_is_ready_dt`
-     * connects to the node's `status` property, here's some tips:
+     * connects to the node's `status` property, here are some tips:
      *
      * The GPIO subsystem is an instance based device driver. Such drivers use a fixed driver
      * model, explained in https://docs.zephyrproject.org/latest/kernel/drivers/index.html.
@@ -60,8 +61,9 @@ void main(void)
      *
      * `return dev->state->initialized && (dev->state->init_res == 0U);`
      *
-     * To find the instances, you can, e.g., have a look at your linker file, where you might
-     * find something like this:
+     * The article explains in great detail how the corresponding instances are associated with
+     * the correct devicetree nodes. E.g., the following device objects of the GPIO subsystem
+     * that we can find in the map file:
      *
      * ```
      * .z_device_PRE_KERNEL_140_
@@ -88,5 +90,14 @@ void main(void)
     {
         (void) gpio_pin_toggle_dt(&led);
         k_msleep(SLEEP_TIME_MS);
+        if (tick != false)
+        {
+            printk("Tick\n");
+        }
+        else
+        {
+            printk("Tock\n");
+        }
+        tick = !tick;
     }
 }
