@@ -8,11 +8,21 @@
 #error "Missing /chosen node 'app-led'."
 #endif
 
-// The LED node's GPIO device specification. This information uses the property "gpios",
-// which is of type `phandle-array`, where each phandle receives the `pin` and `flags` as metadata.
-// Each field in the GPIO specification is in the end set using the `DT_PHA_BY_IDX` that we've
-// seen in the devicetree semantics.
+// Showing some more `devicetree.h` usage: The following compile time switch leads to a proper
+// error message for the unlikely scenario where a referenced `gpio` node has the status "disabled".
+// Such a compile-time switch is not typically used in an application and exists only for
+// demonstrational purposes in the matching article.
+#if DT_NODE_HAS_STATUS(DT_PHANDLE(LED_NODE, gpios), okay)
+/*
+ * The LED node's GPIO device specification. This information uses the property "gpios",
+ * which is of type `phandle-array`, where each phandle receives the `pin` and `flags` as metadata.
+ * Each field in the GPIO specification is in the end set using the `DT_PHA_BY_IDX` that we've
+ * seen in the devicetree semantics.
+ */
 static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED_NODE, gpios);
+#else
+#error "The status of the GPIO referenced by the LED node is not 'okay'"
+#endif
 
 #define LED_NODE DT_CHOSEN(app_led)
 #if !DT_NODE_EXISTS(LED_NODE)
@@ -20,12 +30,10 @@ static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED_NODE, gpios);
 #endif
 
 /*
- * For the GPIO subsystem, checking a node's status or using `gpio_is_ready_dt` currently
- * has the same effect, since the fields that are checked in the `gpio_is_ready_dt` function
- * are expanded by the preprocessor according to the node's status. However, in general
- * you should not assume that calling `is_ready`is equivalent to checking a node's status since,
- * e.g., `is_ready` might perform additional checks such as checking that an associated pin
- * is configured for the correct mode.
+ * The `status` property is not defined in the devicetree for our LED node. Any node without a
+ * `status` property is implicitly assumed to have the status "okay". Thus, the following
+ * condition evaluates to `false`, no error occurs. Such compile-time checks are pretty common
+ * within Zephyr and help to reduce the code size and RAM consumption of the final application.
  */
 #if !DT_NODE_HAS_STATUS(LED_NODE, okay)
 #error "LED node status is not okay."
@@ -41,8 +49,6 @@ void main(void)
     /*
      * While devicetree macros are quite straightforward, for runtime functions such as
      * `gpio_is_ready_dt` the connection to the devicetree is sometimes harder to understand.
-     * In case you're going down the rabbit hole trying to understand how `gpio_is_ready_dt`
-     * connects to the node's `status` property, here are some tips:
      *
      * The GPIO subsystem is an instance based device driver. Such drivers use a fixed driver
      * model, explained in https://docs.zephyrproject.org/latest/kernel/drivers/index.html.
@@ -52,25 +58,14 @@ void main(void)
      * `DT_INST_FOREACH_STATUS_OKAY(GPIO_NRF_DEVICE)`
      *
      * This macro ends up declaring instances `__device_dts_ord_<nn>` (and others) for each node
-     * with the compatible property set to "nordic,nrf-gpio" and the status "okay". The node's
-     * status is also reflected by the corresponding values written to the instance's fields, e.g.,
-     * the field `device->state`.
-     *
-     * For "gpio.h", the function `gpio_is_ready_dt` in the end simply calls `z_device_is_ready`
-     * with `spec->port`, which determines whether or not the device is ready as follows:
+     * with the compatible property set to "nordic,nrf-gpio" and the status "okay". For "gpio.h",
+     * the function `gpio_is_ready_dt` in the end simply calls `z_device_is_ready` with
+     * `spec->port`, which determines whether or not the device is ready as follows:
      *
      * `return dev->state->initialized && (dev->state->init_res == 0U);`
      *
-     * The article explains in great detail how the corresponding instances are associated with
-     * the correct devicetree nodes. E.g., the following device objects of the GPIO subsystem
-     * that we can find in the map file:
-     *
-     * ```
-     * .z_device_PRE_KERNEL_140_
-     *    0x0000000000006534  0x30 zephyr/drivers/gpio/libdrivers__gpio.a(gpio_nrfx.c.obj)
-     *    0x0000000000006534           __device_dts_ord_104
-     *    0x000000000000654c           __device_dts_ord_11s
-     * ```
+     * As you can see, the function does not access any `status` field of the device.
+     * Thus, using `is_ready_dt` is generally not equivalent to checking the node's status.
      */
     if (!gpio_is_ready_dt(&led))
     {

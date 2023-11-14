@@ -9,9 +9,14 @@
     }; */
 };
 
-&uart0 {
-    status = "okay";
-};
+// No device objects are allocated for nodes with the `status` property set to `"disabled"`.
+// Without the compile-time switch for `DT_NODE_HAS_STATUS` in `main.c`, uncommenting the following
+// leads to the "cryptic" linker error documented for `DEVICE_DT_GET`:
+// device.h: 84: 41: error: '__device_dts_ord_11' undeclared here (not in a function)
+/*
+&gpio0 {
+    status = "disabled";
+}; */
 
 // In theory, it is possible to pass _any_ phandle to `gpios`, as long as the referred node has
 // a #gpio-cells property. Using the below assignment, however, will fail as soon as the GPIO
@@ -20,3 +25,21 @@
 &led0 {
     gpios = <&{/node_a} 1 2 3>;
 }; */
+
+// Disable unused peripherals to reduce power consumption.
+&adc {status = "disabled"; };
+&i2c0 {status = "disabled"; };
+&i2c1 {status = "disabled"; };
+&pwm0 {status = "disabled"; };
+&spi0 {status = "disabled"; };
+&spi1 {status = "disabled"; };
+&spi3 {status = "disabled"; };
+&usbd {status = "disabled"; };
+&nfct {status = "disabled"; };
+&temp {status = "disabled"; };
+&radio {status = "disabled"; };
+&uart1 {status = "disabled"; };
+&gpiote {status = "disabled"; };
+
+// Disabling uart0 is possible too, but this disables the console output.
+// &uart0 {status = "disabled"; };
