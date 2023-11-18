@@ -1,9 +1,9 @@
 
-In the previous articles, we covered _devicetree_ in great detail: We've seen how we can create our own nodes, we've seen the supported property types, we know what bindings are, and we've seen how to access the devicetree using Zephyr's `devicetree.h` API. With this article, we'll finally look at a _practical_ example.
+In the previous articles, we covered _devicetree_ in great detail: We've seen how we can create our own nodes, we've seen the supported property types, we know what bindings are, and we've seen how to access the devicetree using Zephyr's `devicetree.h` API. With this article, we'll look at how devicetree is used in _practice_.
 
-With this pratical example we'll see that our deep dive into devicetree was really only covering the basics that we need to understand more advanced concepts, such as [Pin Control][zephyr-pinctrl]. Finally, we'll run the practical example on two boards with different MCUs - showing maybe the main benefit of using Zephyr.
+With this pratical example we'll see that our deep dive into devicetree was really only covering the basics that we need to understand more advanced concepts, such as [pin control][zephyr-pinctrl] and device drivers.
 
-TODO: extend for Kconfig if done.
+<!-- Finally, we'll run the practical example on two boards with different MCUs - showing maybe the main benefit of using Zephyr. -->
 
 - [Prerequisites](#prerequisites)
 - [Warm up](#warm-up)
@@ -18,10 +18,19 @@ TODO: extend for Kconfig if done.
   - [Summary](#summary)
 - [The `status` property](#the-status-property)
   - [Intermezzo: Power profiling](#intermezzo-power-profiling)
-- [Devicetree with `UART`](#devicetree-with-uart)
-  - [`pinctrl` - remapping `uart0`](#pinctrl---remapping-uart0)
-- [Kconfig with `memfault`](#kconfig-with-memfault)
-- [Switching boards](#switching-boards)
+- [Device driver function calls](#device-driver-function-calls)
+- [Dissecting UART peripheral pin multiplexing](#dissecting-uart-peripheral-pin-multiplexing)
+  - [Peripheral pin control in Zephyr](#peripheral-pin-control-in-zephyr)
+    - [Pin control concepts](#pin-control-concepts)
+  - [Basics and grouped pin control with the nRF52840](#basics-and-grouped-pin-control-with-the-nrf52840)
+    - [Pin control basics](#pin-control-basics)
+    - [Grouped pin control](#grouped-pin-control)
+    - [Standard pin control properties](#standard-pin-control-properties)
+  - [Node approach with the STM32](#node-approach-with-the-stm32)
+  - [Summary](#summary-1)
+- [Devicetree and `vscode`](#devicetree-and-vscode)
+- [Rerouting UART](#rerouting-uart)
+  - [Switching to the STM32 Nucleo-64 development board](#switching-to-the-stm32-nucleo-64-development-board)
 - [Conclusion](#conclusion)
 - [Further reading](#further-reading)
 
@@ -29,7 +38,9 @@ TODO: extend for Kconfig if done.
 
 This article is part of an article _series_. In case you haven't read the previous articles, please go ahead and have a look. This article requires that you're able to build and flash a Zephyr application to the board of your choice, and that you're familiar with _devicetree_.
 
-We'll be mainly using the [development kit for the nRF52840][nordicsemi-nrf52840-dk] and will run the example on an [STM32 Nucleo-64 development board][stm-nucleo] towards the end of the article, but you can follow along with any target - real or virtual.
+We'll be mainly using the [development kit for the nRF52840][nordicsemi-nrf52840-dk] but will also refer to example files from the [STM32 Nucleo-64 development board][stm-nucleo] towards the end of the article, but you can follow along with any target - real or virtual.
+
+<!-- We'll be mainly using the [development kit for the nRF52840][nordicsemi-nrf52840-dk] and will run the example on an [STM32 Nucleo-64 development board][stm-nucleo] towards the end of the article, but you can follow along with any target - real or virtual. -->
 
 > **Note:** A full example application including all files that we'll see throughout this article is available in the [`04_practice` folder of the accompanying GitHub repository](https://github.com/lmapii/practical-zephyr/tree/main/04_practice).
 
@@ -831,89 +842,89 @@ After rebuilding and flashing the application, I can perform the same measuremen
 
 Notice that the scale of the y-axis changed from *0 .. 5 mA* to  *0 .. 20 uA*, that's a factor 250 smaller! This is also visible in the MCU's current consumption in the sleep phase, which dropped from *550 uA* to an average of *7 uA*.
 
-<!--
+It is quite convenient and easy enough to disable unused peripherals. If you think that power management is Zephyr is as simple as that, however, I'll have to disappoint you: This is really just a way to disable peripherals that are _not used at all_. If we'd, e.g., need the UART while the device is not in sleep mode, we're looking at an entirely different mechanism. We'll only scratch the surface of power management in Zephyr when we'll have a look at [pin control](#peripheral-pin-control-in-zephyr), but for details you'll need to dive into the [official documentation][zephyr-pm].
+
+Comparing the memory usage of the build with and without optimized node status, we can also see a slight gain in the flash memory concumption:
+
 ```
+# west build with all nodes "okay"
 Memory region     Used Size  Region Size  %age Used
        FLASH:       27808 B         1 MB      2.65%
          RAM:        7552 B       256 KB      2.88%
     IDT_LIST:          0 GB         2 KB      0.00%
 ```
-
 ```
+# west build with optimized node status
 Memory region     Used Size  Region Size  %age Used
        FLASH:       25352 B         1 MB      2.42%
          RAM:        7552 B       256 KB      2.88%
     IDT_LIST:          0 GB         2 KB      0.00%
 ```
--->
-
-It is quite convenient and easy enough to disable unused peripherals. If you think that power management is Zephyr is as simple as that, however, I'll have to disappoint you: This is really just a way to disable peripherals that are _not used at all_. If we'd, e.g., need the UART while the device is not in sleep mode, we're looking at an entirely different mechanism. We'll only scratch the surface of power management in Zephyr when we'll ahve a look at [pin control](#pinctrl---remapping-uart0), but for details you'll need to dive into the [official documentation][zephyr-pm].
 
 
 
-## Devicetree with `UART`
+## Device driver function calls
 
-### `pinctrl` - remapping `uart0`
+Even though we still won't write an instance based device driver in this article series it is worth quickly (and this time I mean _really quickly_) reviewing how Zephyr's API function calls map to the function tables provided by the device drivers.
 
-## Kconfig with `memfault`
+Let's first have a look at an overly simplified devicetree driver function call tree for `gpio_pin_configure_dt`, which looks approximately as follows:
+
+```
+gpio_pin_configure_dt(
+  │     spec, extra_flags)
+  └── gpio_pin_configure(
+        │     spec->port, spec->pin, spec->dt_flags | extra_flags)
+        └── z_impl_gpio_pin_configure(
+              │     spec->port, spec->pin, spec->dt_flags | extra_flags)
+              └── spec->port->api->pin_configure(
+                        spec->port, spec->pin, flags)
+```
+
+A call to `gpio_pin_configure_dt` thus maps to the function call `spec->port->api->pin_configure`. When we dissected the GPIO pin information type, we've already seen that `spec->port` is assigned the [device object `__device_dts_ord_<N>`](#macrobatics-resolving-device-objects-with-device_dt_get). Knowing already that our device object is created in `zephyr/drivers/gpio/gpio_nrfx.c`, we can immediately see that the API function table is the last parameter passed to the macro `DEVICE_DT_INST_DEFINE`:
+
+`zephyr/drivers/gpio/gpio_nrfx.c`
+```c
+static const struct gpio_driver_api gpio_nrfx_drv_api_funcs = {
+  .pin_configure = gpio_nrfx_pin_configure,
+  // --snip--
+};
+
+// --snip--
+#define GPIO_NRF_DEVICE(id)                 \
+  /* --snip-- */                            \
+  DEVICE_DT_INST_DEFINE(id, gpio_nrfx_init, \
+      /* --snip-- */                        \
+      &gpio_nrfx_drv_api_funcs);
+
+DT_INST_FOREACH_STATUS_OKAY(GPIO_NRF_DEVICE)
+```
+
+That's it, as promised I was quick about that one. That's the magic behind the device driver abstractions in Zephyr. With that, you'll have an easy time diving into the [device driver model][zephyr-drivers] and [instance-based APIs][zephyr-dts-api-instance].
 
 
 
+## Dissecting UART peripheral pin multiplexing
 
+With `&led0` we've seen that it's quite straight-forward to use GPIOs in Zephyr. Changing the GPIO pin, e.g., of an LED node, can be as easy as changing the corresponding phandle's pin specifier. We'll now look how pin assignments work for _peripherals_. For that, we'll use our old friend _UART_.
 
-
-
-
-
-
-
-
-
-
-finding conflicts ??
-
-GPIO_DT_SPEC_GET -> easy, but device drivers are more complex, e.g., when trying to understand the is_ok
-devicetree runtime API can be complex, macros are quite straight foward.
-
-
-Blinky
-
-
-GPIO API
-
-
+We've learned that UART is used for the console output and thus for `printk`, so let's use some `printk` calls to make use of it. We'll output `"tick"` each time the LED is turned on, and `"tock"` each time it is turned off:
 
 ```c
-/** \file main.c */
-
-#include <zephyr/drivers/gpio.h>
-#include <zephyr/kernel.h>
-
-#define LED_NODE DT_CHOSEN(app_led)
-#if !DT_NODE_EXISTS(LED_NODE)
-#error "Missing /chosen node 'app-led'."
-#endif
-
-static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED_NODE, gpios);
-
-#if !DT_NODE_HAS_STATUS(LED_NODE, okay)
-#error "LED node status is not okay."
-#endif
-
-#define SLEEP_TIME_MS 1000U
-
 void main(void)
 {
     int err   = 0;
+    bool tick = true;
 
     if (!gpio_is_ready_dt(&led))
     {
+        printk("Error: LED pin is not available.\n");
         return;
     }
 
     err = gpio_pin_configure_dt(&led, GPIO_OUTPUT_ACTIVE);
     if (err != 0)
     {
+        printk("Error %d: failed to configure LED pin.\n", err);
         return;
     }
 
@@ -921,52 +932,402 @@ void main(void)
     {
         (void) gpio_pin_toggle_dt(&led);
         k_msleep(SLEEP_TIME_MS);
+
+        if (tick != false) { printk("Tick\n"); }
+        else { printk("Tock\n"); }
+        tick = !tick;
     }
 }
 ```
 
-Kconfig: Memfault?
-Devicetree: routing a gpio and rerouting uart.
-
-nRF devicetree extension is nice, but it doesn't even show its own psels (e.g., UART) so the pinout only shows GPIOs
+> **Note:** If you've been following along, make sure to set the UART node's status back to `"okay"` in case you've disabled it in the last section.
 
 
-pinctrl
+### Peripheral pin control in Zephyr
 
-## Switching boards
+To see how pins are assigned to our UART peripheral, we need to look into our board's DTS file. There, we find `pinctrl-<x>` properties for the `&uart0` node:
 
-switch to STM32
+`zephyr/boards/arm/nrf52840dk_nrf52840/nrf52840dk_nrf52840.dts`
+```dts
+&uart0 {
+  compatible = "nordic,nrf-uarte";
+  status = "okay";
+  current-speed = <115200>;
+  pinctrl-0 = <&uart0_default>;
+  pinctrl-1 = <&uart0_sleep>;
+  pinctrl-names = "default", "sleep";
+};
+```
 
-TODO: show that `gpio` is not generic by defining our own node and showing that it is _not_ compatible between boards.
+Before we look at how `pinctrl` works, you might ask yourself why we need another mechanism when we have `gpios`, and what the difference between the two is. Couldn't we just use `gpios` and, e.g., pass _phandles_ for all the pins we need for our UART interface?
+
+For some MCUs, like Nordic's nRF series, this might work since pin multiplexing for such MCUs is not restricted: On Nordic's MCUs it is possible to assign any functionality to any pin. Other MCUs (e.g., STM32) typically restrict this and clearly define possible alternate pin functions for all pins.
+
+MCU manufacturers can be quite creative when it comes to pin multiplexing, and before Zephyr 3.0 pin multiplexing was entirely vendor specific. With Zephyr 3.0 (and mostly adopted with version 3.1) Zephyr adopted the [Linux `pinctl`][linux-pinctl] concept as a _standardized_ way of assigning peripheral functions to pins in devicetree - and called it `pinctrl`.
+
+There is, of course, still an overlap between `gpios` and `pinctrl` since both associate nodes with pins and their parameters (e.g., pull resistors). As a rule of thumb, `pinctrl` is generally used if the pin goes to a **peripheral** in the `/soc` node, whereas `gpios` are used if the pin is used by the application.
+
+#### Pin control concepts
+
+[Zephyr's official documentation][zephyr-pinctrl] distinguishes between two general concepts: _Distributed_ and _centralized_ pin control. The difference between the two concepts is essentially defined by which device decides about possible pin assignments, as we've seen before:
+
+**Distributed pin control**
+
+Some MCUs, such as the nRF series from Nordic, do not restrict pin assignments and the pin assignment is defined by each _peripheral_. E.g., the UART node selects whichever pins it uses for RXD, TXD, CTS and RTS. The pin control is thus _distributed_ accross all peripherals; there is no centralized pin multiplexer.
+
+**Centralized pin control**
+
+Other MCUs, such as the STM32, do not allow an arbitrary pin assignment. Instead, pins support alternative functions, managed by a centralized pin multiplexer which assigns the pin to the a certain _peripheral_.
+
+**Devicetree approach**
+
+Whether an MCU uses centralized or distributed pin control does not necessarily have an impact on how the pin control is reflected the devicetree. Zephyr supports two approaches in _devicetree_ for pin multiplexing: **Grouped** and **node** approach.
+
+- In the **node approach** the vendor provides a DTS file containing dedicated nodes for all pins and the supported alternative functions. The provided nodes are referenced unmodified by the `pinctrl` properties of the peripheral. This is mostly used for MCUs with centralized pin control and fixed alternative functions and we'll see a practical example when browsing the [STM32 devicetree source files](#node-approach-with-the-stm32).
+
+- In the **grouped approach** the vendor's devicetree sources do not provide nodes for all possible combinations. Instead, nodes containing the pin configuration are created either for the board or by the application, and pins are grouped by their configuration (e.g., pull resistors), thus the name. The pin multiplexing may or may not be restricted and thus this approach is for both, distributed and centralized pin multiplexing. We'll see this when we'll be browsing the [Nordic devicetree source files in the next section](#node-approach-with-the-stm32).
+
+Neither concept or approach is "better or worse", it is just what's implemented by hardware. As mentioned, MCU manufacturers can be very, very creative and thus pin control will probably always remain vendor specific.
+
+### Basics and grouped pin control with the nRF52840
+
+Let's bring up the `&uart0` node in the nRF52840 development kit's DTS file to save you some scrolling:
+
+#### Pin control basics
+
+`zephyr/boards/arm/nrf52840dk_nrf52840/nrf52840dk_nrf52840.dts`
+```dts
+&uart0 {
+  compatible = "nordic,nrf-uarte";
+  status = "okay";
+  current-speed = <115200>;
+  pinctrl-0 = <&uart0_default>;
+  pinctrl-1 = <&uart0_sleep>;
+  pinctrl-names = "default", "sleep";
+};
+```
+
+The first thing we notice are the two properties `pinctrl-0` and `pinctrl-1`. The property names don't really give a hint about their semantics. You could, of course, look at the matching binding and its include `zephyr/dts/bindings/pinctrl/pinctrl-device.yaml`, but in this case, the meaning of these properties is better described in [Zephyr's official documentation about pin control][zephyr-pinctrl]:
+
+Each device can have multiple _pin controller_ **states**. The names of the supported states are listed in the `pinctrl-names` property, in this case `"default"` and `"sleep"`. Both states are standard states defined by Zephyr for when the device is operational and in its sleep mode, if supported.
+
+Whichever states are supported by a device is defined by its _driver_. Therefore, you can't, e.g., simply add another `pinctrl-2` and add a new name to `pinctrl-names` in an overlay and expect your application to compile or work. The _device driver_ must support multiple states for you to be able to use them.
+
+> **Note:** We won't go into detail about how a device driver switches modes or _dynamic pin control_ in this article. Also the `"sleep"` mode is described in more detail in Zephyr's official documentation about the [power management OS service][zephyr-pm]. E.g., the `"sleep"` mode can be disabled using the _Kconfig_ symbol [`PM_DEVICE`][zephyr-kconfig-pm]. For now, it is enough to know that such states exist and how we can configure them.
+
+As the names of the _phandles_ in the `pinctrl-<n>` suggest, `pinctrl-<n>` is the pin control configuration for device state with index `n` in the property `pinctrl-names`: `pinctrl-0` is used for the operational state `"default"`, and `pinctrl-1` is used for the sleep state `"sleep"`.
+
+Except for a list of pre-defined properties that we'll see in just a bit, this is it for the standardized part of pin control! The structure of the referenced nodes is entirely vendor specific, though vendors typically at least either follow the _grouping_ or _node approaches_ that we've mentioned before.
+
+#### Grouped pin control
+
+We can find the referenced nodes `&uart0_default` and `&uart0_sleep` in the matching `-pinctrl.dtsi` DTS include file of the board:
+
+`zephyr/boards/arm/nrf52840dk_nrf52840/nrf52840dk_nrf52840-pinctrl.dtsi`
+```dts
+&pinctrl {
+  uart0_default: uart0_default {
+    group1 {
+      psels = <NRF_PSEL(UART_TX, 0, 6)>, <NRF_PSEL(UART_RTS, 0, 5)>;
+    };
+    group2 {
+      psels = <NRF_PSEL(UART_RX, 0, 8)>, <NRF_PSEL(UART_CTS, 0, 7)>;
+      bias-pull-up;
+    };
+  };
+  uart0_sleep: uart0_sleep {
+    group1 {
+      psels =
+        <NRF_PSEL(UART_TX, 0, 6)>,  <NRF_PSEL(UART_RX, 0, 8)>,
+        <NRF_PSEL(UART_RTS, 0, 5)>, <NRF_PSEL(UART_CTS, 0, 7)>;
+      low-power-enable;
+    };
+  };
+};
+```
+
+The above is an example for the _grouping approach_ for pin control:
+
+Pins with common _properties_ are _grouped_ into child nodes with the name `group<m>`. E.g., the pins configured in `/pinctrl/uart0_default/group2` all use the `bias-pull-up` property to indicate that pull-up resistors are enabled for all pins in `psels`. Notice that the index `m` has nothing to do with the corresponding `pinctrl-<n>` properties of the peripheral node; it is simply used as _group_ index. All groups _combined_ contain the complete pin configuration for the state where they're referenced, e.g., _"default"_ or _"sleep"_.
+
+> **Note:** Naming child nodes of `pinctrl` using the format `group<m>` is only a convention for the _grouped approach_. In fact, for most drivers that follow this _grouped approach_ the actual node names within the `pinctrl` node is irrelevant: The drivers simply iterate over all child nodes regardless of their names.
+
+Within each group, Nordic uses a vendor-specific format and thus also binding. We can find the referenced node `&pinctrl` in the included `nrf_common.dtsi` file, where the compatible binding is defined:
+
+`zephyr/dts/arm/nordic/nrf_common.dtsi`
+```dts
+/ {
+  pinctrl: pin-controller {
+    compatible = "nordic,nrf-pinctrl";
+  };
+};
+```
+
+Within this compatible binding, we see that `child-binding` and thus format of all children of `nordic,nrf-pinctrl` compatible nodes is defined:
+
+`zephyr/dts/bindings/pinctrl/nordic,nrf-pinctrl.yaml`
+```yaml
+compatible: "nordic,nrf-pinctrl"
+include: base.yaml
+
+child-binding:
+  child-binding:
+    include:
+      - name: pincfg-node.yaml
+        property-allowlist:
+          - bias-disable
+          - bias-pull-down
+          - bias-pull-up
+          - low-power-enable
+
+    properties:
+      psels:
+        required: true
+        type: array
+        description: |
+          An array of pins sharing the same group properties. The pins should
+          be defined using the NRF_PSEL utility macro that encodes the port,
+          pin and function. NRF_PSEL_DISCONNECTED is also available to explicitly
+          disconnect a pin.
+
+      # --snip-- more nordic-specific properties
+```
+
+The property `psels` is specific to Nordic MCUs and - as documented - you're supposed to use the `NRF_PSEL` macro to create an entry in the `psels` array for all pins that you're using. This macro (defined in `zephyr/include/zephyr/dt-bindings/pinctrl/nrf-pinctrl.h`) takes the pin _function_, _port_ and _pin_ as parameter.
+
+Other vendors use an entirely different set of properties and macros for their devicetree nodes and values. E.g., _Espressif_ uses the property `pinmux` instead of `psels` for the ESP32, as specified by `espressif,esp32-pinctrl.yaml`:
+
+`zephyr/boards/xtensa/esp_wrover_kit/esp_wrover_kit-pinctrl.dtsi`
+```dts
+&pinctrl {
+  uart0_default: uart0_default {
+    group1 {
+      pinmux = <UART0_TX_GPIO1>;
+    };
+    group2 {
+      pinmux = <UART0_RX_GPIO3>;
+      bias-pull-up;
+    };
+  };
+};
+```
+
+ESP32 provides a fixed [set of macros for their bindings][esp32-dt-bindings] as thoroughly documented in their [`pinctrl` index page](https://docs.zephyrproject.org/latest/build/dts/api/bindings/pinctrl/espressif%2Cesp32-pinctrl.html#dtbinding-espressif-esp32-pinctrl): On the ESP32 a particular I/O pin does not necessarily have a certain pin function. Instead of providing a parameterized macro, the fixed macros `UART0_TX_GPIO1` and `UART0_RX_GPIO3` are used configure the GPIO and function for the corresponding pins.
+
+But let's get back back to our `&uart0` node on the nRF52840 development kit. We've now seen `psels`, but what is this `pincfg-node.yaml` include?
+
+#### Standard pin control properties
+
+The binding `pincfg-node.yaml` contains **standardized** pin properties that _should_ in turn be used by a vendor's `pinctrl`. E.g., properties for the pull resistor configuration, low-power modes, slew-rates, etc.
+
+`zephyr/dts/bindings/pinctrl/pincfg-node.yaml`
+```yaml
+properties:
+  bias-disable:
+    type: boolean
+    description: disable any pin bias
+  # --snip--
+  bias-pull-up:
+    type: boolean
+    description: enable pull-up resistor
+  bias-pull-down:
+    type: boolean
+    description: enable pull-down resistor
+  # --snip--
+  low-power-enable:
+    type: boolean
+    description: enable low power mode
+  # --snip--
+```
+
+Each vendor can in turn restrict which properties are supported by MCU pins using the `property-allowlist`. The following is the matching snippet from the nRF52840 DTS file that we've seen before:
+
+```yaml
+child-binding:
+  child-binding:
+    include:
+      - name: pincfg-node.yaml
+        property-allowlist:
+          - bias-disable
+          - bias-pull-down
+          - bias-pull-up
+          - low-power-enable
+```
+
+
+### Node approach with the STM32
+
+Having seen the _grouped approach_, let's see how the _node approach_ is applied for the STM32 by looking at the
+[STM32 Nucleo-64 development board][stm-nucleo]'s DTS file:
 
 `zephyr/boards/arm/nucleo_c031c6/nucleo_c031c6.dts`
+```dts
+&usart2 {
+  pinctrl-0 = <&usart2_tx_pa2 &usart2_rx_pa3>;
+  pinctrl-names = "default";
+  current-speed = <115200>;
+  status = "okay";
+};
+```
 
-even though boards cannot be "simply switched" and there'll always be some special usecases, the entire development environment is the same, the APIs are pretty much the same,
+Since the `pinctrl-<x>` properties are predefined by Zephyr, the format of the above snippet looks very familiar: The `pinctrl-names` only contains the operational mode `"default"` - it thus seems like the `"sleep"` mode is not supported (yet) by the STM32 drivers. Therefore, only `pinctrl-0` is provided, which now contains _two_ references instead of one.
 
-basically, Zephyr relieves us from having to create wrappers for our own application, and the toolchain remains the same.
+Aside from the fact that we're using **two** _phandles_, the node names already indicate that this is a node based approach with fixed pin multiplexing. This is especially clear when comparing the node names to the _alternate function mapping_ table in the datasheet:
+
+- Pin _PA2_ has the alternative function `AF1=USART2_TX`, matching `usart2_tx_pa2`
+- Pin _PA3_ has the alternative function `AF1=USART2_RX`, matching `usart2_rx_pa3`
+
+The content in the matching DTS file in the [STM32 HAL][zephyr-hal-stm32] specifies just that:
+
+`hal_stm32/dts/st/c0/stm32c031c(4-6)tx-pinctrl.dtsi`
+```dts
+/ {
+  soc {
+    pinctrl: pin-controller@50000000 {
+      /omit-if-no-ref/ usart2_tx_pa2: usart2_tx_pa2 {
+        pinmux = <STM32_PINMUX('A', 2, AF1)>;
+        bias-pull-up;
+      };
+      /omit-if-no-ref/ usart2_rx_pa3: usart2_rx_pa3 {
+        pinmux = <STM32_PINMUX('A', 3, AF1)>;
+      };
+    };
+  };
+};
+```
+
+> **Note:** If you're also using the Nordic toolchain installer to install Zephyr, you won't find the `stm32c031c(4-6)tx-pinctrl.dtsi` locally, since `hal_stm32` is not included in the installation. Check the [STM32 HAL on GitHub][zephyr-hal-stm32] until we solve this problem in the next article.
+
+> **Note:** `/omit-if-no-ref/` is used to tell the devicetree generator that no code should be generated for the node in case it is not referenced in the devicetree. This avoids adding unnecessary content to the devicetree since `pinctrl` nodes are only used when referenced.
+
+On the STM32, the RX and TX functionality for `USART2` can only be selected via a pin's alternative function and is therefore not available on all pins. Instead of providing macros for all combinations, in the node approach you'll find predefined _nodes_ for all pins and functions, e.g., for `USART2_TX` the following nodes exist in `stm32c031c(4-6)tx-pinctrl.dtsi`.
+
+- `usart2_tx_pa2`
+- `usart2_tx_pa4`
+- `usart2_tx_pa8`
+- `usart2_tx_pa14`
+
+The `USART2_TX` functionality is therefore only available on the pins _PA2_, _PA4_, _PA8_ and _PA14_, as specified in the datasheet. The order in which the pins are assigned to `pinctrl-<n>` is again irrelevant since the pin's configuration determines its function. E.g., selecting `AF1` for the pin _PA2_ means that this pin is used for UART-TX of the USART2 peripheral.
+
+As stated in [Zephyr's official documentation about pin control][zephyr-pinctrl], the _node approach_ method is discouraged if autogeneration is not an option. Therefore, you should really only encounter this pattern for MCUs where predefined nodes exist for all possible pin/function combinations.
+
+This also means, that for MCUs using the _node approach_ you should never attempt to change the properties of the `pinctrl` nodes, e.g., in your overlay files. When mapping a peripheral to a different set of pins, you should instead _change_ the node references in the `pinctrl-<n>` property.
+
+
+### Summary
+
+Zephyr streamlines pin multiplexing by requiring the use of `pinctrl` properties for SoC peripherals and by providing a standardized set of pin configuration properties.
+
+The nodes referenced in the `pinctrl-<n>` phandle arrays, however, are entirely vendor specific and will probably remain so in the forseeable future. Two patterns for dealing with `pinctrl` nodes exist: **Grouping** and the **node** approach.
+
+- Pin control with the **grouping approach** is the recommended approach and uses macros for the pin assignment. MCUs with restricted pin multiplexing typically provide macros for supported pins and functions, whereas MCUs with unrestricted multiplexing such as Nordics nRF series use parameterized macros.
+
+- Pin control with the **node approach** is only used for MCUs with restricted pin multiplexing: For each supported combination of pins and functions, the vendor provides a DTS file with generated nodes. Pins are assigned to a peripheral by referring to different (generated) nodes.
+
+You can explore the pin control for your vendor of choice by looking it up in [Zephyr's bindings index][zephyr-dts-bindings-index].
+
+
+
+## Devicetree and `vscode`
+
+If you like `vscode`, you can also have a look at Nordic's [nRF DeviceTree extension](https://marketplace.visualstudio.com/items?itemName=nordic-semiconductor.nrf-devicetree). It includes devicetree language support and even a visual devicetree editor in case you're using [Nordic][nordicsemi]'s MCUs.
+
+![nRF vscode devicetree](../assets/nrf-vscode-dt.png?raw=true)
+
+While I haven't used the visual editor, it is also able to visualize multiple assignments for the same GPIO within the devicetree. The extension is very useful when browsing devicetree source files.
+
+
+
+## Rerouting UART
+
+With what we've learned about [grouped pin control with the nRF52840](#basics-and-grouped-pin-control-with-the-nrf52840), let's reroute our `&uart0` instance to pins that are available on the development kit's pin rows instead of using the pins that lead to the USB interface.
+
+E.g., let's use the pins _P1.6_ and _P1.8_ instead. There are two ways to do this: Either we define our own nodes and assign them to the `pinctrl-<n>` properties of the `&uart0` node, or we overwrite the `psels` of the existing `&uart0_default` and `&uart0_default` nodes. For MCUs using the grouping approach, there's really no difference at all, and since it is easier, we'll just overwrite the existing nodes in our overlay as follows:
+
+`04_practice/boards/nrf52840dk_nrf52840.overlay`
+```dts
+&uart0_default {
+  group1 {
+    psels = <NRF_PSEL(UART_TX, 1, 6)>, <NRF_PSEL_DISCONNECTED(UART_RTS)>;
+  };
+  group2 {
+    psels = <NRF_PSEL(UART_RX, 1, 8)>, <NRF_PSEL_DISCONNECTED(UART_CTS)>;
+    bias-pull-up;
+  };
+};
+&uart0_sleep {
+  group1 {
+    psels =
+      <NRF_PSEL(UART_TX, 1, 6)>,  <NRF_PSEL(UART_RX, 1, 8)>,
+      <NRF_PSEL_DISCONNECTED(UART_RTS)>, <NRF_PSEL_DISCONNECTED(UART_CTS)>;
+    low-power-enable;
+  };
+};
+```
+
+Notice that I've also disabled the RTS and CTS since we're not really using it. Since I don't have a working [FDTI](https://ftdichip.com/) cable, I'll be be using my completely overqualified but trusted [Saleae](https://www.saleae.com) and connect it to the pins _P1.6_ and _P1.8_. It works!
+
+![Saleae screenshot Async Serial](../assets/saleae-uart.png?raw=true)
+
+Also, the output on the J-Link device remains empty, meaning that we really rerouted our UART node. A bit more intricate than reassigning GPIOs, but just as flexible.
+
+
+### Switching to the STM32 Nucleo-64 development board
+
+Since I have a spare [STM32 Nucleo-64 development board][stm-nucleo] at hand, it'd be nice to repeat the same steps and reroute the UART output for an MCU that uses the _pin approach_. Before we try to reroute anything, let's try to build the project for the matching board `nucleo_c031c6`:
+
+```bash
+$ rm -rf ../build
+$ west build --board nucleo_c031c6 --build-dir ../build
+```
+```
+In file included from <command-line>:
+/opt/nordic/ncs/v2.4.0/zephyr/boards/arm/nucleo_c031c6/nucleo_c031c6.dts:9:10: fatal error: st/c0/stm32c031c(4-6)tx-pinctrl.dtsi: No such file or directory
+    9 | #include <st/c0/stm32c031c(4-6)tx-pinctrl.dtsi>
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+compilation terminated.
+```
+
+Well, that's embarrasing. Something's wrong with our setup, we don't seem to have all the files we need! At least this is what happens if you've followed my advice to use Nordic's toolchain installer. What's the reason for this error?
+
+The reason is quite simple: Obviously, Nordic's toolchain installer assumes that you're using the _nRF Connect SDK_ and not "simply Zephyr". It therefore doesn't include HALs and files from other vendors that are not required.
+
+When using multiple MCUs it is therefore better to step away from installations, and to use as west workspace application instead. But that's a topic for the next and final article of this series. See? Embedded articles can have cliffhangers too!
+
+
 
 ## Conclusion
+
 
 ## Further reading
 
 
-
-
+[A][interrupt-drivers-on-zephyr]
+[B][zephyr-blog-howto-pinctrl]
+[C][zephyr-ds-2022-driver-dev]
+[D][zephyr-ds-2022-pinctrl]
 
 
 [nordicsemi]: https://www.nordicsemi.com/
 [nordicsemi-dev-academy]: https://academy.nordicsemi.com/
 [nordicsemi-nrf52840-dk]: https://www.nordicsemi.com/Products/Development-hardware/nrf52840-dk
+[nordicsemi-ppk]: https://www.nordicsemi.com/Products/Development-hardware/Power-Profiler-Kit-2
 
 [stm-nucleo]: https://www.st.com/en/evaluation-tools/nucleo-c031c6.html
+[esp32-dt-bindings]: https://github.com/zephyrproject-rtos/hal_espressif/blob/zephyr/include/dt-bindings/pinctrl
+[linux-pinctl]: https://www.kernel.org/doc/html/v4.13/driver-api/pinctl.html
 
 [zephyr-samples-and-demos]: https://docs.zephyrproject.org/latest/samples/index.html
 [zephyr-samples-blinky]: https://docs.zephyrproject.org/latest/samples/basic/blinky/README.html
 [zephyr-samples-blinky-main]: https://github.com/zephyrproject-rtos/zephyr/blob/main/samples/basic/blinky/src/main.c
 
 [zephyr-api-gpio]: https://docs.zephyrproject.org/latest/hardware/peripherals/gpio.html#gpio-api
+[zephyr-blog-howto-pinctrl]: https://www.zephyrproject.org/how-to-use-zephyr-pin-control-pinctrl-for-pin-multiplexing-and-configuration/
+[zephyr-hal-stm32]: https://github.com/zephyrproject-rtos/hal_stm32
 
 [zephyr-dts-api-instance]: https://docs.zephyrproject.org/latest/build/dts/api/api.html#devicetree-inst-apis
+[zephyr-dts-important-properties]: https://docs.zephyrproject.org/2.7.5/guides/dts/intro.html#important-properties
+[zephyr-dts-bindings-index]: https://docs.zephyrproject.org/latest/build/dts/api/bindings.html
 
 [zephyr-app-repository]: https://docs.zephyrproject.org/latest/develop/application/index.html#zephyr-repo-app
 [zephyr-app-freestanding]: https://docs.zephyrproject.org/latest/develop/application/index.html#zephyr-freestanding-app
@@ -976,5 +1337,10 @@ basically, Zephyr relieves us from having to create wrappers for our own applica
 [zephyr-os-services]: https://docs.zephyrproject.org/latest/services/index.html
 [zephyr-peripherals]: https://docs.zephyrproject.org/latest/hardware/peripherals/index.html
 [zephyr-drivers]: https://docs.zephyrproject.org/latest/kernel/drivers/index.html
+[zephyr-pm]: https://docs.zephyrproject.org/latest/services/pm/index.html
+[zephyr-kconfig-pm]: https://docs.zephyrproject.org/latest/kconfig.html#CONFIG_PM_DEVICE
 
 [zephyr-ds-2022-driver-dev]: https://www.youtube.com/watch?v=o-f2qCd2AXo
+[zephyr-ds-2022-pinctrl]: https://www.youtube.com/watch?v=bcTekbGN-Pk
+
+[interrupt-drivers-on-zephyr]: https://interrupt.memfault.com/blog/building-drivers-on-zephyr
