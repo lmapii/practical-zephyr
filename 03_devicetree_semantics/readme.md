@@ -1927,7 +1927,6 @@ With that said and done, let's wrap up this article.
 
 ## Conclusion
 
-
 In this article, we've learned about devicetree _bindings_ and how they are used by Zephyr's generator script to produce code that can, in turn, be used by the application using Zephyr's devicetree API. We've seen:
 
 - How devicetree nodes are associated with bindings,

@@ -1,7 +1,7 @@
 
 In the previous articles, we covered _devicetree_ in great detail: We've seen how we can create our own nodes, we've seen the supported property types, we know what bindings are, and we've seen how to access the devicetree using Zephyr's `devicetree.h` API. With this article, we'll look at how devicetree is used in _practice_.
 
-With this pratical example we'll see that our deep dive into devicetree was really only covering the basics that we need to understand more advanced concepts, such as [pin control][zephyr-pinctrl] and device drivers.
+With this practical example, we'll see that our deep dive into devicetree was really only covering the basics that we need to understand more advanced concepts, such as [pin control][zephyr-pinctrl] and device drivers.
 
 <!-- Finally, we'll run the practical example on two boards with different MCUs - showing maybe the main benefit of using Zephyr. -->
 
@@ -36,7 +36,7 @@ With this pratical example we'll see that our deep dive into devicetree was real
 
 ## Prerequisites
 
-This article is part of an article _series_. In case you haven't read the previous articles, please go ahead and have a look. This article requires that you're able to build and flash a Zephyr application to the board of your choice, and that you're familiar with _devicetree_.
+This article is part of an article _series_. In case you haven't read the previous articles, please go ahead and have a look. This article requires that you're able to build and flash a Zephyr application to the board of your choice and that you're familiar with _devicetree_.
 
 We'll be mainly using the [development kit for the nRF52840][nordicsemi-nrf52840-dk] but will also refer to example files from the [STM32 Nucleo-64 development board][stm-nucleo] towards the end of the article, but you can follow along with any target - real or virtual.
 
@@ -48,7 +48,7 @@ We'll be mainly using the [development kit for the nRF52840][nordicsemi-nrf52840
 
 ## Warm up
 
-If you've been following along, you should know the drill by now: Let's create a new freestanding application with the files listed below:
+If you've been following along, you know the drill by now: Let's create a new freestanding application with the files listed below:
 
 ```bash
 $ tree --charset=utf-8 --dirsfirst
@@ -59,7 +59,7 @@ $ tree --charset=utf-8 --dirsfirst
 └── prj.conf
 ```
 
-The `prj.conf` remains empty for now, and the `CMakeLists.txt` only includes the necessary boilerplate to create a Zephyr application with a single `main.c` source file. As an application, we'll a `main` function that simply puts the MCU back to sleep at fixed intervals:
+The `prj.conf` remains empty for now, and the `CMakeLists.txt` only includes the necessary boilerplate to create a Zephyr application with a single `main.c` source file. As an application, we have a `main` function that simply puts the MCU back to sleep at fixed intervals:
 
 ```c
 #include <zephyr/kernel.h>
@@ -85,18 +85,18 @@ $ west build --board nrf52840dk_nrf52840 --build-dir ../build
 
 ## Devicetree with `gpio`
 
-Let's start with a classic: The blinking LED. The easiest way to control a low-power LED is using a GPIO, and one obvious way to approach this problem, is to jump straight to the [`gpio` API][zephyr-api-gpio] documentation. In contrast to [Zephyr's OS service documentation][zephyr-os-services], however, the documentation for [peripherals][zephyr-peripherals] is typically restricted to the API, without further explaining the subsystem.
+Let's start with a classic: The blinking LED. The easiest way to control a low-power LED is using a GPIO, and one obvious way to approach this problem is to jump straight to the [`gpio` API][zephyr-api-gpio] documentation. In contrast to [Zephyr's OS service documentation][zephyr-os-services], however, the documentation for [peripherals][zephyr-peripherals] is typically restricted to the API, without further explaining the subsystem.
 
 Instead, Zephyr's chosen approach is to provide a list of related **code samples** for each subsystem, showing the API in action. And Zephyr comes with _hundreds_ of [samples and demos][zephyr-samples-and-demos]! In the list of related samples for the `gpio` subsystem, we also find the good old [blinky example][zephyr-samples-blinky].
 
-> **Note:** [Blinky][zephyr-samples-blinky] is an example for a [Zephyr _repository_ application][zephyr-app-repository]. We continue using a [_freestanding_ application][zephyr-app-freestanding], and in the next article we'll finally create a [_workspace_ application][zephyr-app-workspace].
+> **Note:** [Blinky][zephyr-samples-blinky] is an example for a [Zephyr _repository_ application][zephyr-app-repository]. We continue using a [_freestanding_ application][zephyr-app-freestanding], and in the next article, we'll finally create a [_workspace_ application][zephyr-app-workspace].
 
-Straight from the documentation, we follow the _"Open in GitHub"_ link to find the application in Zephyr's repository, and simply copy the contents from [`main.c`][zephyr-samples-blinky-main] into our own application. We'll now compare the `gpio` devicetree API with the "plain" API in `zephyr/include/zephyr/devicetree.h` that we've seen in the last article.
+Straight from the documentation, we follow the _"Open in GitHub"_ link to find the application in Zephyr's repository and simply copy the contents from [`main.c`][zephyr-samples-blinky-main] into our own application. We'll now compare the `gpio` devicetree API with the "plain" API in `zephyr/include/zephyr/devicetree.h` that we've seen in the last article.
 
 
 ### Blinky with a `/chosen` LED node
 
-The *Blinky* example choses the LED devicetree node using the _alias_ `led0`. Zephyr keeps its devicetrees clean and we've seen that aliases, including `led0` are usually consistent throughout supported boards. Thus, if there's a board supported by Zephyr that has at least one light on it that works like LED, you can be sure that there's an `led0` alias for it:
+The *Blinky* example chooses the LED devicetree node using the _alias_ `led0`. Zephyr keeps its devicetrees clean and we've seen that aliases, including `led0` are usually consistent throughout supported boards. Thus, if there's a board supported by Zephyr that has at least one light on it that works like LED, you can be sure that there's an `led0` alias for it:
 
 `zephyr/boards/arm/nrf52840dk_nrf52840/nrf52840dk_nrf52840.dts`
 ```dts
@@ -136,7 +136,7 @@ $ tree --charset=utf-8 --dirsfirst
 };
 ```
 
-In the example application, we use `DT_CHOSEN(app_led)` instead of `DT_ALIAS(led0)`, but that's about the only change we need. Notice that again we specify the chosen node's name using its "lowercase-and-underscore" form `app_led` instead of the node's name `app-led` in the devicetree. With a few minor adaptions our application looks as follows:
+In the example application, we use `DT_CHOSEN(app_led)` instead of `DT_ALIAS(led0)`, but that's about the only change we need. Notice that again we specify the chosen node's name using its "lowercase-and-underscore" form `app_led` instead of the node's name `app-led` in the devicetree. With a few minor adaptions, our application looks as follows:
 
 ```c
 /** \file main.c */
@@ -173,14 +173,15 @@ $ west build --board nrf52840dk_nrf52840 --build-dir ../build
 $ west flash --build-dir ../build
 ```
 
-TODO: GIF
-TODO: Doesn't a blinking LED doesn't put a smile on your face?
+![Blinky on the nRF52840 Development Kit](../assets/nrf-blinky.gif?raw=true "blinky")
+
+I don't know about you, but even after all those years a blinking LED still puts a smile on my face.
 
 
 
 ## Dissecting the GPIO pin information type
 
-Looking through the function prototypes of `gpio_is_ready_dt`, `gpio_pin_configure_dt`, and `gpio_pin_toggle_dt`,  you'll notice that they take a "_GPIO specification_" `const struct gpio_dt_spec *spec` as parameter. We find the matching declaration in Zephyr's `gpio.h`:
+Looking through the function prototypes of `gpio_is_ready_dt`, `gpio_pin_configure_dt`, and `gpio_pin_toggle_dt`,  you'll notice that they take a "_GPIO specification_" `const struct gpio_dt_spec *spec` as a parameter. We find the matching declaration in Zephyr's `gpio.h`:
 
 `zephyr/include/zephyr/drivers/gpio.h`
 ```c
@@ -235,7 +236,7 @@ Ignoring the `.port` field (we'll get to that, don't worry), `GPIO_DT_SPEC_GET` 
   }
 ```
 
-> **Note:** The downside of using C macros is that, well, they're macros. Macros are expanded by the preprocessor, and the preprocessor doesn't care about types. It therefore also doesn't care if you use `GPIO_DT_SPEC_GET` as initializer for an incompatible type. This _typically_ fails during compile time, however, in case the assigned variable or constant doesn't have a compatible type.
+> **Note:** The downside of using C macros is that, well, they're macros. Macros are expanded by the preprocessor, and the preprocessor doesn't care about types. It therefore also doesn't care if you use `GPIO_DT_SPEC_GET` as an initializer for an incompatible type. This _typically_ fails during compile time, however, in case the assigned variable or constant doesn't have a compatible type.
 
 
 ### Reviewing *phandle-array*s
@@ -362,7 +363,7 @@ Looking at `dt_flags`, we see that `GPIO_DT_SPEC_GET` uses the `_OR` variant of 
 * For nodes with a _compatible binding_ that have both, `pin` and `flags` specifiers, the devicetree compiler ensures that values are provided for both, `pin` and `flags` whenever the node is references in a `phandle-array`; providing a value for `flags` is **not** optional for such phandles.
 * For nodes with a _compatible binding_ that does **not** have the `flags` specifier, the value _0_ is used in the specification. The compatible driver can also completely ignore the _flags_ field in any API call.
 
-This adds another level of flexibility to the generic binding `gpio-leds` for LEDs, supporing any kind of GPIO node LEDs, regardless of whether or not they support using `flags`, e.g., as follows:
+This adds another level of flexibility to the generic binding `gpio-leds` for LEDs, supporting any kind of GPIO node LEDs, regardless of whether or not they support using `flags`, e.g., as follows:
 
 ```dts
 / {
@@ -402,8 +403,8 @@ static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(DT_CHOSEN(app_led), gpio
 
 #### Macrobatics: Resolving device objects with `DEVICE_DT_GET`
 
-Before resolving macros manually, it is always worth looking into the documentation. We have two nexted macros, so it makes sense to check the inner `DT_GPIO_CTLR_BY_IDX` first. The API documentation claims, that it can be used to
-"_get the node identifier for the controller phandle from a gpio phandle-array property_". For the assignment `gpios = <&gpio0 13 GPIO_ACTIVE_LOW>;` in our LED node, we'd thus expect to get the node identifer for the phandle `&gpio0`.
+Before resolving macros manually, it is always worth looking into the documentation. We have two nested macros, so it makes sense to check the inner `DT_GPIO_CTLR_BY_IDX` first. The API documentation claims, that it can be used to
+"_get the node identifier for the controller phandle from a gpio phandle-array property_". For the assignment `gpios = <&gpio0 13 GPIO_ACTIVE_LOW>;` in our LED node, we'd thus expect to get the node identifier for the phandle `&gpio0`.
 
 Let's have a look at the macro and its expansion:
 
@@ -554,7 +555,7 @@ We found it! It seems to be declared in Nordic's GPIO driver `zephyr/drivers/gpi
 
 #### Macrobatics: Declaring compatilble drivers and device object
 
-I promised that we won't go into detail about [Zephyr's device driver model][zephyr-drivers] - and we won't. In this section, we'll only look at how the device instances are defined and how the connection with the nodes in the devicetree is established.
+I promised that we wouldn't go into detail about [Zephyr's device driver model][zephyr-drivers] - and we won't. In this section, we'll only look at how the device instances are defined and how the connection with the nodes in the devicetree is established.
 
 The two responsible parts within `gpio_nrfx.c` for defining the instances are the following:
 
@@ -585,7 +586,7 @@ Let's dissect these macros one by one, starting with `DT_INST_FOREACH_STATUS_OKA
   )
 ```
 
-For the expansion of `COND_CODE_1` we rely on the docs, which state that this macro _"insert[s] code depending on whether _flag expands to 1 or not."_. The first parameter is the *_flag*, the second parameter the code in case *_flag* expands to 1, and finally, the third parameter is the code that is used in case the *_flag* is **not** 1 or undefined.
+For the expansion of `COND_CODE_1` we rely on the docs, which state that this macro _"insert[s] code depending on whether _flag expands to 1 or not."_. The first parameter is the *_flag*, the second parameter is the code in case *_flag* expands to 1, and finally, the third parameter is the code that is used in case the *_flag* is **not** 1 or undefined.
 
 To get to the flag, we need to check `DT_HAS_COMPAT_STATUS_OKAY(DT_DRV_COMPAT)`:
 
@@ -601,7 +602,7 @@ grep -w DT_COMPAT_HAS_OKAY_nordic_nrf_gpio ../build/zephyr/include/generated/dev
 #define DT_COMPAT_HAS_OKAY_nordic_nrf_gpio 1
 ```
 
-Zephyr's devicetree generator creates a lot more information than just macros for property values of our devicetree nodes! Here, we see that the generator also provides macros indicating whether it encountered some nodes that claim compatibility with "`nordic,nrf-gpio`". If it wouldn't encounter any such node, it won't create the corresponding macros and we'd know that the content of any driver compatible with "`nordic,nrf-gpio`" is unused and can thus be discarded. Pretty neat!
+Zephyr's devicetree generator creates a lot more information than just macros for the property values of our devicetree nodes! Here, we see that the generator also provides macros indicating whether it encountered some nodes that claim compatibility with "`nordic,nrf-gpio`". If it doesn't encounter any such node, it won't create the corresponding macros and we'd know that the content of any driver compatible with "`nordic,nrf-gpio`" is unused and can thus be discarded. Pretty neat!
 
 The devicetree generator does this for each and every driver and node. This allows heavy optimizations in the codebase as we've seen above.
 
@@ -642,7 +643,7 @@ This leads us to the expansion of `DEVICE_DT_INST_DEFINE` used by `GPIO_NRF_DEVI
       &gpio_nrfx_drv_api_funcs);
 ```
 
-The documentation of `DT_DRV_INST` states that it is used to get the "_node identifier for an instance of a `DT_DRV_COMPAT` compatible_". That's exactly what we'd expect, but we want to know _how_ this is done: How do we match a node (identifer) to a device _instance_ number? Looks like we'll have to do a quick macro expansion for `DT_DRV_INST` as well:
+The documentation of `DT_DRV_INST` states that it is used to get the "_node identifier for an instance of a `DT_DRV_COMPAT` compatible_". That's exactly what we'd expect, but we want to know _how_ this is done: How do we match a node (identifier) to a device _instance_ number? Looks like we'll have to do a quick macro expansion for `DT_DRV_INST` as well:
 
 ```c
 // Expansion of DT_DRV_INST, given
@@ -668,7 +669,7 @@ $ grep -w DT_N_INST_1_nordic_nrf_gpio ../build/zephyr/include/generated/devicetr
 #define DT_N_INST_1_nordic_nrf_gpio DT_N_S_soc_S_gpio_50000300
 ```
 
-Yet again Zephyr's devicetree generator provides the neccessary macros to map the instance number `inst` to the matching node that claims compatibility with a given device driver:
+Yet again Zephyr's devicetree generator provides the necessary macros to map the instance number `inst` to the matching node that claims compatibility with a given device driver:
 
 - `/soc/gpio@50000000` is instance _0_, and
 - `/soc/gpio@50000300` is instance _1_ of the driver `nordic,nrf-gpio`.
@@ -713,8 +714,6 @@ static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED_NODE, gpios);
 ```
 
 Zephyr's devicetree generator provides much more than just macros for accessing property values in the devicetree. It also creates the necessary macros to _associate_ driver instances with nodes, and to _create_ the corresponding instances in the device driver itself. And then some ...
-
-
 
 
 
@@ -770,7 +769,7 @@ static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED_NODE, gpios);
 #endif
 ```
 
-Discard the changes to the board's overlay and removing the conditional compilation in the sources. The documentation also mentions, that the `status` property is implicitly added with the value `"okay"` for nodes that do not define the property in the devicetree. As we can see in the merged `zephyr.dts` file in the build folder, our `/leds/led_0` node doesn't have the `status` property:
+Discard the changes to the board's overlay and remove the conditional compilation in the sources. The documentation also mentions, that the `status` property is implicitly added with the value `"okay"` for nodes that do not define the property in the devicetree. As we can see in the merged `zephyr.dts` file in the build folder, our `/leds/led_0` node doesn't have the `status` property:
 
 `build/zephyr/zephyr.dts`
 ```dts
@@ -785,7 +784,7 @@ Discard the changes to the board's overlay and removing the conditional compilat
 };
 ```
 
-Instead of looking into `devicetree_generated.h`, we can also check that the node is indeed implicilty assigned the `status` with the value `"okay"` using the following compile time switch and macros from `devicetree.h`:
+Instead of looking into `devicetree_generated.h`, we can also check that the node is indeed implicitly assigned the `status` with the value `"okay"` using the following compile time switch and macros from `devicetree.h`:
 
 ```c
 #if !DT_NODE_HAS_STATUS(LED_NODE, okay)
@@ -795,16 +794,18 @@ Instead of looking into `devicetree_generated.h`, we can also check that the nod
 
 Rebuilding the application works without any warnings or errors and the LED continues blinking happily. You'll find such conditional compilation switches in many of Zephyr's source files. _How_ the `status` property is used varies between the corresponding subsystems.
 
-What's the use of the `status`, then? You can and should use `status` to _disable_ all nodes that you don't need. This typically leads to a (slight) reduction of code size but is especially important for low power applications to reduce the power consumption by disabling unused peripherals.
+What's the use of the `status`, then? You can and should use `status` to _disable_ all nodes that you don't need. This typically leads to a (slight) reduction of code size but is especially important for low-power applications to reduce power consumption by disabling unused peripherals.
 
-> **Note:** In case you're wondering what the difference between the `status` property and the `is_ready_dt` function call is - you're not alone, so let's clarify this briefly. The `status` property is used to _remove_ instances from altogether, whereas the `is_ready_dt` ensures that the driver is ready to be used. You can't call `is_ready_dt` with a specification for a disabled node - as we've seen, the compilation or linking fails entirely for disabled nodes.
+> **Note:** In case you're wondering what the difference between the `status` property and the `is_ready_dt` function call is - you're not alone, so let's clarify this briefly. The `status` property is used to _remove_ instances altogether, whereas the `is_ready_dt` ensures that the driver is ready to be used. You can't call `is_ready_dt` with a specification for a disabled node - as we've seen, the compilation or linking fails entirely for disabled nodes.
 
 
 ### Intermezzo: Power profiling
 
 Let's apply what we've just learned and observe the MCU's current consumption with and without disabling unused nodes. To do that, I'll be using Nordic's [Power Profiler Kit][nordicsemi-ppk].
 
-> **Disclaimer:** Nope, I'm not affiliated with Nordic in any way. I'm just a big fan of their MCUs, hardware and software. You can, of course, use any clamp meter or other measurement hardware to verify the current consumption.
+![nRF52840 Development Kit with PPK-II](../assets/kit-ppk.jpg?raw=true "nRF52840-DK-PPK")
+
+> **Disclaimer:** Nope, I'm not affiliated with Nordic in any way. I'm just a big fan of their MCUs, hardware, and software. You can, of course, use any clamp meter or other measurement hardware to verify the current consumption.
 
 Without disabling unused nodes, I'm observing a current consumption in the application's sleep cycles of around *550 uA*. The screenshot below shows the measurement for an interval of 3 seconds, where the y-axis measures the current consumption truncated to a range of *0 .. 5 mA*. You should still be able to make out the three peaks in the current consumption where the MCU wakes up to toggle the LED.
 
@@ -812,7 +813,7 @@ Without disabling unused nodes, I'm observing a current consumption in the appli
 
 How can we find out which nodes to disable?
 
-Zephyr's board DTS files typically enable plenty of nodes, mostly for you to be able to run the samples without having to use an overlay to enable the required nodes. For a custom board this might not be the case, meaning nodes could be _disabled_ by default and you might have to enable nodes before using them. In the end, you should be well aware of the peripherals and thus nodes that you need, and should thus _simply know_ which nodes can be disabled.
+Zephyr's board DTS files typically enable plenty of nodes, mostly for you to be able to run the samples without having to use an overlay to enable the required nodes. For a custom board, this might not be the case, meaning nodes could be _disabled_ by default and you might have to enable nodes before using them. In the end, you should be well aware of the peripherals and thus nodes that you need, and should thus _simply know_ which nodes can be disabled.
 
 In case of doubt another good location to look for a node's `status` is the `zephyr.dts` in the build directory. I've picked the following nodes from there and disabled them in the board's overlay:
 
@@ -836,15 +837,15 @@ In case of doubt another good location to look for a node's `status` is the `zep
 
 > **Note:** We're also disabling `uart0` and therefore the `/chosen` node for our console output - the boot banner `*** Booting Zephyr OS build v3.3.99-ncs1 ***` will no longer be output.
 
-After rebuilding and flashing the application, I can perform the same measurement again and I indeed get a very different result, as you can see in the below screenshot:
+After rebuilding and flashing the application, I can perform the same measurement again and I indeed got a very different result, as you can see in the below screenshot:
 
 ![Screenshot PPKII status=disabled](../assets/ppk-status-disabled.png?raw=true "PPKII status=disabled")
 
 Notice that the scale of the y-axis changed from *0 .. 5 mA* to  *0 .. 20 uA*, that's a factor 250 smaller! This is also visible in the MCU's current consumption in the sleep phase, which dropped from *550 uA* to an average of *7 uA*.
 
-It is quite convenient and easy enough to disable unused peripherals. If you think that power management is Zephyr is as simple as that, however, I'll have to disappoint you: This is really just a way to disable peripherals that are _not used at all_. If we'd, e.g., need the UART while the device is not in sleep mode, we're looking at an entirely different mechanism. We'll only scratch the surface of power management in Zephyr when we'll have a look at [pin control](#peripheral-pin-control-in-zephyr), but for details you'll need to dive into the [official documentation][zephyr-pm].
+It is quite convenient and easy enough to disable unused peripherals. If you think that power management is Zephyr is as simple as that, however, I'll have to disappoint you: This is really just a way to disable peripherals that are _not used at all_. If we'd, e.g., need the UART while the device is not in sleep mode, we're looking at an entirely different mechanism. We'll only scratch the surface of power management in Zephyr when we have a look at [pin control](#peripheral-pin-control-in-zephyr), but for details, you'll need to dive into the [official documentation][zephyr-pm].
 
-Comparing the memory usage of the build with and without optimized node status, we can also see a slight gain in the flash memory concumption:
+Comparing the memory usage of the build with and without optimized node status, we can also see a slight gain in the flash memory consumption:
 
 ```
 # west build with all nodes "okay"
@@ -865,7 +866,7 @@ Memory region     Used Size  Region Size  %age Used
 
 ## Device driver function calls
 
-Even though we still won't write an instance based device driver in this article series it is worth quickly (and this time I mean _really quickly_) reviewing how Zephyr's API function calls map to the function tables provided by the device drivers.
+Even though we still won't write an instance-based device driver in this article series it is worth quickly (and this time I mean _really quickly_) reviewing how Zephyr's API function calls map to the function tables provided by the device drivers.
 
 Let's first have a look at an overly simplified devicetree driver function call tree for `gpio_pin_configure_dt`, which looks approximately as follows:
 
@@ -905,7 +906,7 @@ That's it, as promised I was quick about that one. That's the magic behind the d
 
 ## Dissecting UART peripheral pin multiplexing
 
-With `&led0` we've seen that it's quite straight-forward to use GPIOs in Zephyr. Changing the GPIO pin, e.g., of an LED node, can be as easy as changing the corresponding phandle's pin specifier. We'll now look how pin assignments work for _peripherals_. For that, we'll use our old friend _UART_.
+With `&led0` we've seen that it's quite straightforward to use GPIOs in Zephyr. Changing the GPIO pin, e.g., of an LED node, can be as easy as changing the corresponding phandle's pin specifier. We'll now look at how pin assignments work for _peripherals_. For that, we'll use our old friend _UART_.
 
 We've learned that UART is used for the console output and thus for `printk`, so let's use some `printk` calls to make use of it. We'll output `"tick"` each time the LED is turned on, and `"tock"` each time it is turned off:
 
@@ -963,7 +964,7 @@ Before we look at how `pinctrl` works, you might ask yourself why we need anothe
 
 For some MCUs, like Nordic's nRF series, this might work since pin multiplexing for such MCUs is not restricted: On Nordic's MCUs it is possible to assign any functionality to any pin. Other MCUs (e.g., STM32) typically restrict this and clearly define possible alternate pin functions for all pins.
 
-MCU manufacturers can be quite creative when it comes to pin multiplexing, and before Zephyr 3.0 pin multiplexing was entirely vendor specific. With Zephyr 3.0 (and mostly adopted with version 3.1) Zephyr adopted the [Linux `pinctl`][linux-pinctl] concept as a _standardized_ way of assigning peripheral functions to pins in devicetree - and called it `pinctrl`.
+MCU manufacturers can be quite creative when it comes to pin multiplexing, and before Zephyr 3.0 pin multiplexing was entirely vendor-specific. With Zephyr 3.0 (and mostly adopted with version 3.1) Zephyr adopted the [Linux `pinctl`][linux-pinctl] concept as a _standardized_ way of assigning peripheral functions to pins in devicetree - and called it `pinctrl`.
 
 There is, of course, still an overlap between `gpios` and `pinctrl` since both associate nodes with pins and their parameters (e.g., pull resistors). As a rule of thumb, `pinctrl` is generally used if the pin goes to a **peripheral** in the `/soc` node, whereas `gpios` are used if the pin is used by the application.
 
@@ -973,21 +974,21 @@ There is, of course, still an overlap between `gpios` and `pinctrl` since both a
 
 **Distributed pin control**
 
-Some MCUs, such as the nRF series from Nordic, do not restrict pin assignments and the pin assignment is defined by each _peripheral_. E.g., the UART node selects whichever pins it uses for RXD, TXD, CTS and RTS. The pin control is thus _distributed_ accross all peripherals; there is no centralized pin multiplexer.
+Some MCUs, such as the nRF series from Nordic, do not restrict pin assignments, and the pin assignment is defined by each _peripheral_. E.g., the UART node selects whichever pins it uses for RXD, TXD, CTS, and RTS. The pin control is thus _distributed_ across all peripherals; there is no centralized pin multiplexer.
 
 **Centralized pin control**
 
-Other MCUs, such as the STM32, do not allow an arbitrary pin assignment. Instead, pins support alternative functions, managed by a centralized pin multiplexer which assigns the pin to the a certain _peripheral_.
+Other MCUs, such as the STM32, do not allow an arbitrary pin assignment. Instead, pins support alternative functions, managed by a centralized pin multiplexer which assigns the pin to a certain _peripheral_.
 
 **Devicetree approach**
 
-Whether an MCU uses centralized or distributed pin control does not necessarily have an impact on how the pin control is reflected the devicetree. Zephyr supports two approaches in _devicetree_ for pin multiplexing: **Grouped** and **node** approach.
+Whether an MCU uses centralized or distributed pin control does not necessarily have an impact on how the pin control is reflected in the devicetree. Zephyr supports two approaches in _devicetree_ for pin multiplexing: **Grouped** and **node** approach.
 
 - In the **node approach** the vendor provides a DTS file containing dedicated nodes for all pins and the supported alternative functions. The provided nodes are referenced unmodified by the `pinctrl` properties of the peripheral. This is mostly used for MCUs with centralized pin control and fixed alternative functions and we'll see a practical example when browsing the [STM32 devicetree source files](#node-approach-with-the-stm32).
 
-- In the **grouped approach** the vendor's devicetree sources do not provide nodes for all possible combinations. Instead, nodes containing the pin configuration are created either for the board or by the application, and pins are grouped by their configuration (e.g., pull resistors), thus the name. The pin multiplexing may or may not be restricted and thus this approach is for both, distributed and centralized pin multiplexing. We'll see this when we'll be browsing the [Nordic devicetree source files in the next section](#node-approach-with-the-stm32).
+- In the **grouped approach** the vendor's devicetree sources do not provide nodes for all possible combinations. Instead, nodes containing the pin configuration are created either for the board or by the application, and pins are grouped by their configuration (e.g., pull resistors), thus the name. The pin multiplexing may or may not be restricted and thus this approach is for both, distributed and centralized pin multiplexing. We'll see this when we browse the [Nordic devicetree source files in the next section](#node-approach-with-the-stm32).
 
-Neither concept or approach is "better or worse", it is just what's implemented by hardware. As mentioned, MCU manufacturers can be very, very creative and thus pin control will probably always remain vendor specific.
+Neither concept or approach is "better or worse", it is just what's implemented by hardware. As mentioned, MCU manufacturers can be very, very creative, and thus pin control will probably always remain vendor-specific.
 
 ### Basics and grouped pin control with the nRF52840
 
@@ -1009,15 +1010,15 @@ Let's bring up the `&uart0` node in the nRF52840 development kit's DTS file to s
 
 The first thing we notice are the two properties `pinctrl-0` and `pinctrl-1`. The property names don't really give a hint about their semantics. You could, of course, look at the matching binding and its include `zephyr/dts/bindings/pinctrl/pinctrl-device.yaml`, but in this case, the meaning of these properties is better described in [Zephyr's official documentation about pin control][zephyr-pinctrl]:
 
-Each device can have multiple _pin controller_ **states**. The names of the supported states are listed in the `pinctrl-names` property, in this case `"default"` and `"sleep"`. Both states are standard states defined by Zephyr for when the device is operational and in its sleep mode, if supported.
+Each device can have multiple _pin controller_ **states**. The names of the supported states are listed in the `pinctrl-names` property, in this case `"default"` and `"sleep"`. Both states are standard states defined by Zephyr for when the device is operational and in its sleep mode (if supported).
 
 Whichever states are supported by a device is defined by its _driver_. Therefore, you can't, e.g., simply add another `pinctrl-2` and add a new name to `pinctrl-names` in an overlay and expect your application to compile or work. The _device driver_ must support multiple states for you to be able to use them.
 
-> **Note:** We won't go into detail about how a device driver switches modes or _dynamic pin control_ in this article. Also the `"sleep"` mode is described in more detail in Zephyr's official documentation about the [power management OS service][zephyr-pm]. E.g., the `"sleep"` mode can be disabled using the _Kconfig_ symbol [`PM_DEVICE`][zephyr-kconfig-pm]. For now, it is enough to know that such states exist and how we can configure them.
+> **Note:** We won't go into detail about how a device driver switches modes or _dynamic pin control_ in this article. Also, the `"sleep"` mode is described in more detail in Zephyr's official documentation about the [power management OS service][zephyr-pm]. E.g., the `"sleep"` mode can be disabled using the _Kconfig_ symbol [`PM_DEVICE`][zephyr-kconfig-pm]. For now, it is enough to know that such states exist and how we can configure them.
 
 As the names of the _phandles_ in the `pinctrl-<n>` suggest, `pinctrl-<n>` is the pin control configuration for device state with index `n` in the property `pinctrl-names`: `pinctrl-0` is used for the operational state `"default"`, and `pinctrl-1` is used for the sleep state `"sleep"`.
 
-Except for a list of pre-defined properties that we'll see in just a bit, this is it for the standardized part of pin control! The structure of the referenced nodes is entirely vendor specific, though vendors typically at least either follow the _grouping_ or _node approaches_ that we've mentioned before.
+Except for a list of pre-defined properties that we'll see in just a bit, this is it for the standardized part of pin control! The structure of the referenced nodes is entirely vendor-specific, though vendors typically at least either follow the _grouping_ or _node approaches_ that we've mentioned before.
 
 #### Grouped pin control
 
@@ -1046,7 +1047,7 @@ We can find the referenced nodes `&uart0_default` and `&uart0_sleep` in the matc
 };
 ```
 
-The above is an example for the _grouping approach_ for pin control:
+The above is an example of the _grouping approach_ for pin control:
 
 Pins with common _properties_ are _grouped_ into child nodes with the name `group<m>`. E.g., the pins configured in `/pinctrl/uart0_default/group2` all use the `bias-pull-up` property to indicate that pull-up resistors are enabled for all pins in `psels`. Notice that the index `m` has nothing to do with the corresponding `pinctrl-<n>` properties of the peripheral node; it is simply used as _group_ index. All groups _combined_ contain the complete pin configuration for the state where they're referenced, e.g., _"default"_ or _"sleep"_.
 
@@ -1093,7 +1094,7 @@ child-binding:
       # --snip-- more nordic-specific properties
 ```
 
-The property `psels` is specific to Nordic MCUs and - as documented - you're supposed to use the `NRF_PSEL` macro to create an entry in the `psels` array for all pins that you're using. This macro (defined in `zephyr/include/zephyr/dt-bindings/pinctrl/nrf-pinctrl.h`) takes the pin _function_, _port_ and _pin_ as parameter.
+The property `psels` is specific to Nordic MCUs and - as documented - you're supposed to use the `NRF_PSEL` macro to create an entry in the `psels` array for all pins that you're using. This macro (defined in `zephyr/include/zephyr/dt-bindings/pinctrl/nrf-pinctrl.h`) takes the pin _function_, _port_, and _pin_ as a parameter.
 
 Other vendors use an entirely different set of properties and macros for their devicetree nodes and values. E.g., _Espressif_ uses the property `pinmux` instead of `psels` for the ESP32, as specified by `espressif,esp32-pinctrl.yaml`:
 
@@ -1112,13 +1113,13 @@ Other vendors use an entirely different set of properties and macros for their d
 };
 ```
 
-ESP32 provides a fixed [set of macros for their bindings][esp32-dt-bindings] as thoroughly documented in their [`pinctrl` index page](https://docs.zephyrproject.org/latest/build/dts/api/bindings/pinctrl/espressif%2Cesp32-pinctrl.html#dtbinding-espressif-esp32-pinctrl): On the ESP32 a particular I/O pin does not necessarily have a certain pin function. Instead of providing a parameterized macro, the fixed macros `UART0_TX_GPIO1` and `UART0_RX_GPIO3` are used configure the GPIO and function for the corresponding pins.
+ESP32 provides a fixed [set of macros for their bindings][esp32-dt-bindings] as thoroughly documented in their [`pinctrl` index page](https://docs.zephyrproject.org/latest/build/dts/api/bindings/pinctrl/espressif%2Cesp32-pinctrl.html#dtbinding-espressif-esp32-pinctrl): On the ESP32 a particular I/O pin does not necessarily have a certain pin function. Instead of providing a parameterized macro, the fixed macros `UART0_TX_GPIO1` and `UART0_RX_GPIO3` are used to configure the GPIO and function for the corresponding pins.
 
-But let's get back back to our `&uart0` node on the nRF52840 development kit. We've now seen `psels`, but what is this `pincfg-node.yaml` include?
+But let's get back to our `&uart0` node on the nRF52840 development kit. We've now seen `psels`, but what is this `pincfg-node.yaml` include?
 
 #### Standard pin control properties
 
-The binding `pincfg-node.yaml` contains **standardized** pin properties that _should_ in turn be used by a vendor's `pinctrl`. E.g., properties for the pull resistor configuration, low-power modes, slew-rates, etc.
+The binding `pincfg-node.yaml` contains **standardized** pin properties that _should_, in turn, be used by a vendor's `pinctrl`. E.g., properties for the pull resistor configuration, low-power modes, slew rates, etc.
 
 `zephyr/dts/bindings/pinctrl/pincfg-node.yaml`
 ```yaml
@@ -1136,11 +1137,11 @@ properties:
   # --snip--
   low-power-enable:
     type: boolean
-    description: enable low power mode
+    description: enable - mode
   # --snip--
 ```
 
-Each vendor can in turn restrict which properties are supported by MCU pins using the `property-allowlist`. The following is the matching snippet from the nRF52840 DTS file that we've seen before:
+Each vendor can, in turn, restrict which properties are supported by MCU pins using the `property-allowlist`. The following is the matching snippet from the nRF52840 DTS file that we've seen before:
 
 ```yaml
 child-binding:
@@ -1172,7 +1173,7 @@ Having seen the _grouped approach_, let's see how the _node approach_ is applied
 
 Since the `pinctrl-<x>` properties are predefined by Zephyr, the format of the above snippet looks very familiar: The `pinctrl-names` only contains the operational mode `"default"` - it thus seems like the `"sleep"` mode is not supported (yet) by the STM32 drivers. Therefore, only `pinctrl-0` is provided, which now contains _two_ references instead of one.
 
-Aside from the fact that we're using **two** _phandles_, the node names already indicate that this is a node based approach with fixed pin multiplexing. This is especially clear when comparing the node names to the _alternate function mapping_ table in the datasheet:
+Aside from the fact that we're using **two** _phandles_, the node names already indicate that this is a node-based approach with fixed pin multiplexing. This is especially clear when comparing the node names to the _alternate function mapping_ table in the datasheet:
 
 - Pin _PA2_ has the alternative function `AF1=USART2_TX`, matching `usart2_tx_pa2`
 - Pin _PA3_ has the alternative function `AF1=USART2_RX`, matching `usart2_rx_pa3`
@@ -1200,7 +1201,7 @@ The content in the matching DTS file in the [STM32 HAL][zephyr-hal-stm32] specif
 
 > **Note:** `/omit-if-no-ref/` is used to tell the devicetree generator that no code should be generated for the node in case it is not referenced in the devicetree. This avoids adding unnecessary content to the devicetree since `pinctrl` nodes are only used when referenced.
 
-On the STM32, the RX and TX functionality for `USART2` can only be selected via a pin's alternative function and is therefore not available on all pins. Instead of providing macros for all combinations, in the node approach you'll find predefined _nodes_ for all pins and functions, e.g., for `USART2_TX` the following nodes exist in `stm32c031c(4-6)tx-pinctrl.dtsi`.
+On the STM32, the RX and TX functionality for `USART2` can only be selected via a pin's alternative function and is therefore not available on all pins. Instead of providing macros for all combinations, in the node approach, you'll find predefined _nodes_ for all pins and functions, e.g., for `USART2_TX` the following nodes exist in `stm32c031c(4-6)tx-pinctrl.dtsi`.
 
 - `usart2_tx_pa2`
 - `usart2_tx_pa4`
@@ -1218,7 +1219,7 @@ This also means, that for MCUs using the _node approach_ you should never attemp
 
 Zephyr streamlines pin multiplexing by requiring the use of `pinctrl` properties for SoC peripherals and by providing a standardized set of pin configuration properties.
 
-The nodes referenced in the `pinctrl-<n>` phandle arrays, however, are entirely vendor specific and will probably remain so in the forseeable future. Two patterns for dealing with `pinctrl` nodes exist: **Grouping** and the **node** approach.
+The nodes referenced in the `pinctrl-<n>` phandle arrays, however, are entirely vendor-specific and will probably remain so in the foreseeable future. Two patterns for dealing with `pinctrl` nodes exist: The **grouping** and the **node** approach.
 
 - Pin control with the **grouping approach** is the recommended approach and uses macros for the pin assignment. MCUs with restricted pin multiplexing typically provide macros for supported pins and functions, whereas MCUs with unrestricted multiplexing such as Nordics nRF series use parameterized macros.
 
@@ -1265,11 +1266,15 @@ E.g., let's use the pins _P1.6_ and _P1.8_ instead. There are two ways to do thi
 };
 ```
 
-Notice that I've also disabled the RTS and CTS since we're not really using it. Since I don't have a working [FDTI](https://ftdichip.com/) cable, I'll be be using my completely overqualified but trusted [Saleae](https://www.saleae.com) and connect it to the pins _P1.6_ and _P1.8_. It works!
+Notice that I've also disabled the RTS and CTS since we're not really using it. Since I don't have a working [FDTI](https://ftdichip.com/) cable, I'll be using my completely overqualified but trusted [Saleae](https://www.saleae.com) and connect it to the pins _P1.6_ and _P1.8_.
+
+![nRF52840 Development Kit with Saleae](../assets/kit-saleae.jpg?raw=true "nRF52840-DK-saleae")
+
+It works!
 
 ![Saleae screenshot Async Serial](../assets/saleae-uart.png?raw=true)
 
-Also, the output on the J-Link device remains empty, meaning that we really rerouted our UART node. A bit more intricate than reassigning GPIOs, but just as flexible.
+Also, the output for the J-Link device remains empty, meaning that we really rerouted our UART node. A bit more intricate than reassigning GPIOs, but just as flexible.
 
 
 ### Switching to the STM32 Nucleo-64 development board
@@ -1288,25 +1293,41 @@ In file included from <command-line>:
 compilation terminated.
 ```
 
-Well, that's embarrasing. Something's wrong with our setup, we don't seem to have all the files we need! At least this is what happens if you've followed my advice to use Nordic's toolchain installer. What's the reason for this error?
+Well, that's embarrassing. Something's wrong with our setup, we don't seem to have all the files we need! At least this is what happens if you've followed my advice to use Nordic's toolchain installer. What's the reason for this error?
 
 The reason is quite simple: Obviously, Nordic's toolchain installer assumes that you're using the _nRF Connect SDK_ and not "simply Zephyr". It therefore doesn't include HALs and files from other vendors that are not required.
 
-When using multiple MCUs it is therefore better to step away from installations, and to use as west workspace application instead. But that's a topic for the next and final article of this series. See? Embedded articles can have cliffhangers too!
+When using multiple MCUs it is therefore better to step away from installations and use a _west workspace_ application instead. But that's a topic for the next and final article of this series. See? Embedded articles can have cliffhangers too!
 
 
 
 ## Conclusion
 
+In this article, we made use of what we've learned about the devicetree and its _bindings_ and had a detailed look at how it is applied in Zephyr. I really hope that this article made up for all the theory that I've put you through.
+
+Some of you might have expected a bit more of a "practice" article, but looking at APIs and drivers in Zephyr, I see no point in writing an article when there are so many [samples and demos][zephyr-samples-and-demos] that do a much better job - and are maintained by the awesome Zephyr contributors.
+
+Instead, we had a look at _some_ of Zephyr's APIs and device drivers to learn that _devicetree_ is so much more than just simple macro pasting for obtaining property values. The section on _pin control_ showed us a more advanced concept in devicetree. At the same time, it also showed us that _devicetree_ concepts in Zephyr are still evolving, since the feature was not available prior to Zephyr 3.0 - and that's very good news!
+
+> **Note:** The full example application including all the devicetree files that we've seen throughout this article is available in the [`04_practice` folder of the accompanying GitHub repository](https://github.com/lmapii/practical-zephyr/tree/main/04_practice).
+
+
 
 ## Further reading
 
+The following are great resources when it comes to Zephyr and are worth a read _or watch_:
 
-[A][interrupt-drivers-on-zephyr]
-[B][zephyr-blog-howto-pinctrl]
-[C][zephyr-ds-2022-driver-dev]
-[D][zephyr-ds-2022-pinctrl]
+- When trying to find out how a driver works, definitely have a look at Zephyr's [samples and demos][zephyr-samples-and-demos]. They're usually the best resource.
+- If you want to know more about pin control, have a look at [Zephyr's official documentation][zephyr-pinctrl] and definitely watch the presentation [Deep Dive into Pin Control in Zephyr][zephyr-ds-2022-pinctrl] by Gerard Marull Paretas from the Zephyr Development Summit 2022.
+- A more concise presentation about [How to use Zephyr Pin Control (pinctrl) for pin multiplexing and configuration][zephyr-blog-howto-pinctrl] is available on the Zephyr blog.
+- If you want to know more about driver development, watch the [Tutorial: Mastering Zephyr Driver Development][zephyr-ds-2022-driver-dev] by Gerard Marull Paretas from the Zephyr Development Summit 2022.
+- There's also a blog post on this Interrupt blog about [building drivers on Zephyr][interrupt-drivers-on-zephyr].
 
+Finally, have a look at the files in the [accompanying GitHub repository][practical-zephyr] and I hope I'll see you again in the next article!
+
+
+
+<!-- References -->
 
 [nordicsemi]: https://www.nordicsemi.com/
 [nordicsemi-dev-academy]: https://academy.nordicsemi.com/

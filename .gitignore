@@ -9,3 +9,6 @@ thumbs.db
 # list of private files lying around in my never clean repositories.
 pasted*
 leftovers*
+
+kit*.png
+*.HEIC
