@@ -322,7 +322,7 @@ There is no mechanism in *devicetree* that allows declaring a `phandle-array` wh
 Even if there was an annotation `phandle-array<T>`, e.g., to specify the required `compatible` property, what would we provide for `T`? GPIO nodes use different models depending on the vendor, e.g., the following snippets show the `compatible` properties of the GPIO nodes of the nRF52840 and STM32:
 
 `zephyr/dts/arm/nordic/nrf52840.dtsi`
-```
+```dts
 / {
   soc {
     gpio0: gpio@50000000 { compatible = "nordic,nrf-gpio"; };
@@ -734,7 +734,7 @@ One important property that we've touched already is the `status` property. Whil
 In the nRF52840 development kit's DTS file, the `status` property is overwritten with `"okay"`:
 
 `zephyr/boards/arm/nrf52840dk_nrf52840/nrf52840dk_nrf52840.dts`
-```
+```dts
 &gpio0 { status = "okay"; };
 &gpio1 { status = "okay"; };
 ```
@@ -1323,7 +1323,7 @@ The following are great resources when it comes to Zephyr and are worth a read _
 - If you want to know more about driver development, watch the [Tutorial: Mastering Zephyr Driver Development][zephyr-ds-2022-driver-dev] by Gerard Marull Paretas from the Zephyr Development Summit 2022.
 - There's also a blog post on this Interrupt blog about [building drivers on Zephyr][interrupt-drivers-on-zephyr].
 
-Finally, have a look at the files in the [accompanying GitHub repository][practical-zephyr] and I hope I'll see you again in the next article!
+Finally, have a look at the files in the [accompanying GitHub repository](https://github.com/lmapii/practical-zephyr/tree/main/04_practice) and I hope I'll see you again in the next article!
 
 
 
