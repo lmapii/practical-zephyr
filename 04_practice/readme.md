@@ -75,7 +75,7 @@ void main(void)
 }
 ```
 
-As usual, I'll build the application for my [nRF52840 Development Kit from Nordic][nordicsemi], but you can use any of [Zephyr's long list of supported boards][zephyr-boards] - or an emulation target.
+As usual, I'll build the application for my [nRF52840 Development Kit from Nordic][nordicsemi-nrf52840-dk], but you can use any of [Zephyr's long list of supported boards][zephyr-boards] - or an emulation target.
 
 ```bash
 $ west build --board nrf52840dk_nrf52840 --build-dir ../build
