@@ -220,7 +220,7 @@ Let's get rid of the configuration option and finally run [`west update`][zephyr
 workspace/app $ west config -d build.board
 workspace/app $ cd ../
 workspace $ west update
-workspace $
+workspace $ # nothing happens
 ```
 
 Huh, that was disappointing. `west update` didn't do anything - feel free to check your files, nothing changed! The reason for that is quite simple: With `west init` we already took care of initializing the workspace. Since we don't have any external dependencies to manage, we have no work for `west update`.
@@ -335,7 +335,6 @@ $ mkdir workspace-m
 $ cd workspace-m
 
 workspace-m $ west init -m git@github.com:lmapii/practical-zephyr-t2-empty-ws.git
-west init -m git@github.com:lmapii/practical-zephyr-t2-empty-ws.git
 === Initializing in /path/to/workspace-m
 --- Cloning manifest repository from git@github.com:lmapii/practical-zephyr-t2-empty-ws.git
 Cloning into '/path/to/workspace-m/.west/manifest-tmp'...
@@ -406,7 +405,6 @@ Let's follow the instructions and also remove `practical-zephyr-t2-empty-ws.git`
 ```bash
 workspace-m $ rm -rf .west practical-zephyr-t2-empty-ws.git
 workspace-m $ west init -m git@github.com:lmapii/practical-zephyr-t2-empty-ws.git
-west init -m git@github.com:lmapii/practical-zephyr-t2-empty-ws.git
 === Initializing in /path/to/workspace-m
 ...
 --- setting manifest.path to app
@@ -501,6 +499,7 @@ $ tree --dirsfirst -a -L 3
 
 As an application, we're using a modified version of the *Blinky* sample, where we select the LED node via a newly created `/chosen` node, and output "Tick" and "Tock" each time the LED is turned on or off:
 
+`app/main.c`
 ```c
 /** \file main.c */
 
@@ -544,6 +543,7 @@ void main(void)
 
 I'll again build the application for my [nRF52840 Development Kit from Nordic][nordicsemi-nrf52840-dk] and will only later switch to the [STM32 Nucleo-64 development board][stm-nucleo], so, for now, all I need is the matching `nrf52840dk_nrf52840.overlay` that specifies the chosen LED node:
 
+`app/boards/nrf52840dk_nrf52840.overlay`
 ```dts
 / {
     chosen {
@@ -554,6 +554,7 @@ I'll again build the application for my [nRF52840 Development Kit from Nordic][n
 
 The `prj.conf` remains empty, and the `CMakeLists.txt` only includes the same old boilerplate to create a Zephyr application with a single `main.c` source file:
 
+`app/CMakeLists.txt`
 ```cmake
 cmake_minimum_required(VERSION 3.20.0)
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
@@ -1189,6 +1190,7 @@ Finally, have a look at the files in the example repositories used throughout th
 
 [nrf-connect-sdk]: https://www.nordicsemi.com/Products/Development-software/nrf-connect-sdk
 [nrf-connect-mgr]: https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/installation/assistant.html#install-toolchain-manager
+[nordicsemi-nrf52840-dk]: https://www.nordicsemi.com/Products/Development-hardware/nrf52840-dk
 
 [zephyr-hal-stm32]: https://github.com/zephyrproject-rtos/hal_stm32
 [zephyr-sdk]: https://docs.zephyrproject.org/latest/develop/toolchains/zephyr_sdk.html
