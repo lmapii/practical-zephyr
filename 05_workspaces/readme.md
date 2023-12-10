@@ -1151,7 +1151,7 @@ That's it. Just keep in mind that all _projects_ in a West manifest are managed 
 
 Have a look at the official documentation for [`west update`](https://docs.zephyrproject.org/latest/develop/west/built-in.html#west-update). There, you'll find a detailed description of the entire update procedure, including some options that allow you to selectively update projects.
 
-
+TODO: freeze for a snapshot
 
 ## Conclusion
 

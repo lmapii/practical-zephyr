@@ -1,7 +1,7 @@
 
-In the previous article, configured _software_ using [Kconfig][zephyr-kconfig], and we've silently assumed that there's a UART interface on our board that is configurable and used for logging. In this article, we'll see _how_ we configure and use _hardware_. For this, Zephyr borrows another tool from the Linux kernel: [**devicetree**][zephyr-dts].
+In the previous article, we configured _software_ using [Kconfig][zephyr-kconfig], and we've silently assumed that there's a UART interface on our board that is configurable and used for logging. In this article, we'll see _how_ we configure and use _hardware_. For this, Zephyr borrows another tool from the Linux kernel: [**devicetree**][zephyr-dts].
 
-In contrast to _Kconfig_, using which we essentially provide `C` macros and CMake variables that match the configuration symbol's name, the *devicetree* syntax and its use are a bit more intricate. Therefore, we'll cover *devicetree* in two articles: In this article, we'll see what a devicetree is and how we can write our own devicetree files. In the next article, we'll look at so-called devicetree _bindings_, which add semantics to our devicetree. Be prepared for a fair bit of theory, but as usual, we'll use an example project to follow along.
+In contrast to _Kconfig_, using which we essentially provide `C` macros and CMake variables that match the configuration symbol's name, the *devicetree* syntax and its use are a bit more intricate. Therefore, we'll cover *devicetree* in two articles: In this article, we'll see what a devicetree is and how we can write our own devicetree files. In the next article, we'll look at so-called devicetree _bindings_, which add semantics to our devicetree. Be prepared for a fair bit of theory as we'll get to know devicetree from first principles, but as usual, we'll use an example project to follow along.
 
 - [Prerequisites](#prerequisites)
 - [What's a _devicetree_?](#whats-a-devicetree)
