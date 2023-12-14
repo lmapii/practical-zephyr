@@ -1,0 +1,10 @@
+mainmenu "Customized Menu Name"
+source "Kconfig.zephyr"
+
+menu "Application Options"
+config USR_FUN
+	bool "Enable usr_fun"
+	default n
+	help
+	  Enables the usr_fun function.
+endmenu
