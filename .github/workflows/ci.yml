@@ -1,8 +1,7 @@
 
 name: ci
 on:
-  # FIXME: if you want this to be available for PRs, uncomment this line
-  # pull_request:
+  pull_request:
   push:
     branches:
     - main
@@ -48,7 +47,7 @@ jobs:
           # - { root: '01_kconfig',              invoke: 'ci' }
           # - { root: '02_devicetree_basics',    invoke: 'ci' }
           # - { root: '03_devicetree_semantics', invoke: 'ci' }
-          # - { root: '04_practice',             invoke: 'ci' }
+          - { root: '04_practice',             invoke: 'ci' }
     steps:
       - uses: actions/checkout@v3
       - uses: docker/setup-buildx-action@v2
