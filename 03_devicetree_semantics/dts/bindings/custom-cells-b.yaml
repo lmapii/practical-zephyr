@@ -1,0 +1,5 @@
+description: Dummy for matching "cells"
+compatible: "custom-cells-b"
+
+phandle-array-of-ref-cells:
+  - name-of-cell-one
