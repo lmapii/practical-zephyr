@@ -9,6 +9,6 @@ The application can be built for [Nordic's nRF52840 development kit](https://www
 west build --board nrf52840dk_nrf52840
 ```
 
-The goal of this application is to demonstrate advanced ddevicetree concepts (refer to the article).
+The goal of this application is to demonstrate advanced devicetree concepts (refer to the article).
 
 > **Note:** The [`tasks.py`](./tasks.py) script is used by the [GitHub action](../.github/workflows/ci.yml) for building this application using [invoke](https://www.pyinvoke.org/).
