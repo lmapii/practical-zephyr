@@ -26,7 +26,7 @@ west build --board nrf52840dk_nrf52840 -- -DCONF_FILE=prj_release.conf
 ## Using extra `Kconfig` files
 
 ```bash
-west build --board nrf52840dk_nrf52840 -- -DEXTRA_CONF_FILE="extra0.conf;extra1.conf
+west build --board nrf52840dk_nrf52840 -- -DEXTRA_CONF_FILE="extra0.conf;extra1.conf"
 ```
 * [`prj.conf`](./prj.conf)
 * [`boards/nrf52840dk_nrf52840.conf`](./boards/nrf52840dk_nrf52840.conf)
@@ -36,7 +36,7 @@ west build --board nrf52840dk_nrf52840 -- -DEXTRA_CONF_FILE="extra0.conf;extra1.
 ## Release build with extra `Kconfig` files
 
 ```bash
-west build --board nrf52840dk_nrf52840 -- -DCONF_FILE="prj_release.conf" -DEXTRA_CONF_FILE="extra1.conf;extra0.1onf
+west build --board nrf52840dk_nrf52840 -- -DCONF_FILE="prj_release.conf" -DEXTRA_CONF_FILE="extra1.conf;extra0.1onf"
 ```
 * [`prj_release.conf`](./prj.conf)
 * [`boards/nrf52840dk_nrf52840_release.conf`](./boards/nrf52840dk_nrf52840.conf)
