@@ -14,6 +14,7 @@ target_sources(
     src/main.c
 )
 
+# The following shows how Kconfig symbols can be used to include or exclude files from the build:
 target_sources_ifdef(
     CONFIG_USR_FUN
     app
