@@ -1,7 +1,7 @@
 
 # Exploring Kconfig
 
-This is a [Zephyr freestanding application](https://docs.zephyrproject.org/latest/develop/application/index.html#zephyr-freestanding-app) used in the second article of the "Practical Zephyr" series. It shows the various possibilities of using `Kconfig` files.
+This is a [Zephyr freestanding application](https://docs.zephyrproject.org/latest/develop/application/index.html#zephyr-freestanding-app) used in the [second article](https://interrupt.memfault.com/blog/practical_zephyr_kconfig) of the "Practical Zephyr" series. It shows the various possibilities of using `Kconfig` files.
 
 Browse the files and read the comments for more details - or even better, follow along the article series!
 
