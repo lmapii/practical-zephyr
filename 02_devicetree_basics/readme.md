@@ -1,7 +1,7 @@
 
 # Devicetree from first principles
 
-This [Zephyr freestanding application](https://docs.zephyrproject.org/latest/develop/application/index.html#zephyr-freestanding-app) is used in the third article of the "Practical Zephyr" series. The application itself is just a dummy, the important files are the devicetree overlay files to demonstrate the basic devicetree types used by Zephyr:
+This [Zephyr freestanding application](https://docs.zephyrproject.org/latest/develop/application/index.html#zephyr-freestanding-app) is used in the [third article](https://interrupt.memfault.com/blog/practical_zephyr_dt) of the "Practical Zephyr" series. The application itself is just a dummy, the important files are the devicetree overlay files to demonstrate the basic devicetree types used by Zephyr:
 
 - [`props-basics.overlay`](./dts/playground/props-basics.overlay) shows all basic types except for _phandles_. It is based on [Zephyr's tests for Node.props](https://github.com/zephyrproject-rtos/zephyr/blob/main/scripts/dts/python-devicetree/tests/test.dts#L349)
 - [`props-phandles.overlay`](./dts/playground/props-phandles.overlay) shows the _phandle_, _phandles_, and _phandle-array_ types.
