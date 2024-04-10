@@ -29,7 +29,7 @@ jobs:
       -
         name: Build docker builder-image
         if: steps.cache-docker.outputs.cache-hit != 'true'
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: .
           file: builder.Dockerfile
@@ -47,7 +47,7 @@ jobs:
           - { root: '01_kconfig',              invoke: 'ci' }
           - { root: '02_devicetree_basics',    invoke: 'ci' }
           - { root: '03_devicetree_semantics', invoke: 'ci' }
-          # - { root: '04_practice',             invoke: 'ci' }
+          - { root: '04_practice',             invoke: 'ci' }
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
