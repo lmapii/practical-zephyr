@@ -4,10 +4,13 @@
 
 This is the main repository containing all _freestanding_ example applications of the "Practical Zephyr" blog series:
 
-- [Part 1: Zephyr basics](https://interrupt.memfault.com/blog/practical_zephyr_basics)
-- [Part 2: Kconfig](https://interrupt.memfault.com/blog/practical_zephyr_kconfig)
-- [Part 3: Devicetree basics](https://interrupt.memfault.com/blog/practical_zephyr_dt)
-- [Part 4: Devicetree semantics](https://interrupt.memfault.com/blog/practical_zephyr_dt_semantics)
+| Article                                                                                            | Example                                                 |
+| :------------------------------------------------------------------------------------------------- | :------------------------------------------------------ |
+| [Part 1: Zephyr basics](https://interrupt.memfault.com/blog/practical_zephyr_basics)               | [`00_basics`](./00_basics/)                             |
+| [Part 2: Kconfig](https://interrupt.memfault.com/blog/practical_zephyr_kconfig)                    | [`01_kconfig`](./01_kconfig/)                           |
+| [Part 3: Devicetree basics](https://interrupt.memfault.com/blog/practical_zephyr_dt)               | [`02_devicetree_basics`](./02_devicetree_basics/)       |
+| [Part 4: Devicetree semantics](https://interrupt.memfault.com/blog/practical_zephyr_dt_semantics)  | [`03_devicetree_semantics`](./03_devicetree_semantics/) |
+| [Part 5: Devicetree practice](https://interrupt.memfault.com/blog/practical_zephyr_05_dt_practice) | [`04_practice`](./04_practice/)                         |
 
 <!--
 The [practical-zephyr-manifest-repository](https://github.com/lmapii/practical-zephyr-manifest-repository) is a separate repository that is used for demonstrating _West workspaces_.
