@@ -12,6 +12,4 @@ This is the main repository containing all _freestanding_ example applications o
 | [Part 4: Devicetree semantics](https://interrupt.memfault.com/blog/practical_zephyr_dt_semantics)  | [`03_devicetree_semantics`](./03_devicetree_semantics/) |
 | [Part 5: Devicetree practice](https://interrupt.memfault.com/blog/practical_zephyr_05_dt_practice) | [`04_practice`](./04_practice/)                         |
 
-<!--
-The [practical-zephyr-manifest-repository](https://github.com/lmapii/practical-zephyr-manifest-repository) is a separate repository that is used for demonstrating _West workspaces_.
--->
+The example for the final [Part 6: West workspaces](https://interrupt.memfault.com/blog/practical_zephyr_west) can be found in a separate [practical-zephyr-manifest-repository](https://github.com/lmapii/practical-zephyr-manifest-repository), demonstrating _West workspaces_.
