@@ -1,0 +1,12 @@
+description: Dummy for matching "cells"
+compatible: "custom-cells-a"
+
+properties:
+  dummy-value:
+    type: int
+
+# This list serves as names for the cells.
+# The values of the cells can then be retrieved using the devicetree API, by cell name.
+phandle-array-of-ref-cells:
+  - name-of-cell-one
+  - name-of-cell-two

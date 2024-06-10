@@ -1,0 +1,45 @@
+/ {
+  aliases {
+    // `aliases` is a standard child-node of the root node defined by the DTSpec.
+    // Aliases cannot be used as a references in the devicetree itself, but are
+    // used within the applicaiton as an alternative name for a node.
+    alias-by-label = &label_with_props;
+    alias-by-path = &{/node_with_props};
+    alias-as-string = "/node_with_props";
+  };
+
+  chosen {
+    // `chosen` is yet another standard child-node of the root node defined by the DTSpec.
+    // It describes parameters "chosen" or specified by the application. Such parameters
+    // can be paths to nodes, e.g., for `zephyr,parameters` such as `zephyr,console`, but
+    // also any other property and value.
+    chosen-by-label = &label_with_props;
+    chosen-by-path = &{/node_with_props};
+    chosen-as-string = "/node_with_props";
+    // `chosen` properties can have any valid type, but in Zephyr they are only
+    // used to reference nodes (see also, the DT_CHOSEN macro). For the following properties
+    // no macros are generated in `build/zephyr/include/generated/devicetree_generated.h`:
+    chosen-foo = "chosen bar";
+    chosen-bar = <0xC0FFEE>;
+  };
+
+  label_with_props: node_with_props {
+    compatible = "custom-props-basics";
+    existent-boolean;
+    int = <1>;
+    array = <0xA second_value: 0xB 0xC>;
+    uint8-array = [ 12 34  ];
+    string = string_value: "foo bar baz";
+    string-array = "foo", "bar", "baz";
+    enum-int = <200>;
+    enum-string = "whatever";
+  };
+};
+
+// The following shows how a property can be "unset" or deleted:
+/*
+&label_with_props {
+  /delete-property/ existent-boolean;
+  /delete-property/ string;
+};
+ */

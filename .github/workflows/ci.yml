@@ -1,13 +1,16 @@
 
 name: ci
 on:
-  # FIXME: if you want this to be available for PRs, uncomment this line
-  # pull_request:
+  pull_request:
   push:
     branches:
     - main
   schedule:
     - cron: '0 1 * * 0'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 
 # https://docs.docker.com/build/ci/github-actions/share-image-jobs/
 # just using caches instead of artifact upload.
@@ -15,22 +18,22 @@ jobs:
   docker-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: docker/setup-buildx-action@v2
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
       -
         name: Create docker cache folder
         run: mkdir -p /tmp/docker
       -
         name: Restore docker image
         id: cache-docker
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: /tmp/docker
           key: ${{ runner.os }}-docker-${{ hashFiles('builder.Dockerfile') }}
       -
         name: Build docker builder-image
         if: steps.cache-docker.outputs.cache-hit != 'true'
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: .
           file: builder.Dockerfile
@@ -45,17 +48,17 @@ jobs:
       matrix:
         tuple:
           - { root: '00_basics',               invoke: 'ci' }
-          # - { root: '01_kconfig',              invoke: 'ci' }
-          # - { root: '02_devicetree_basics',    invoke: 'ci' }
-          # - { root: '03_devicetree_semantics', invoke: 'ci' }
-          # - { root: '04_practice',             invoke: 'ci' }
+          - { root: '01_kconfig',              invoke: 'ci' }
+          - { root: '02_devicetree_basics',    invoke: 'ci' }
+          - { root: '03_devicetree_semantics', invoke: 'ci' }
+          - { root: '04_practice',             invoke: 'ci' }
     steps:
-      - uses: actions/checkout@v3
-      - uses: docker/setup-buildx-action@v2
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
       -
         name: Restore docker image
         id: cache-docker
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: /tmp/docker
           key: ${{ runner.os }}-docker-${{ hashFiles('builder.Dockerfile') }}
