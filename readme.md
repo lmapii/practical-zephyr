@@ -1,4 +1,4 @@
-[![Build status](https://github.com/lmapii/practical-zephyr/workflows/ci/badge.svg)](https://github.com/lmapii/practical-zephyr/actions)
+[![Build status](https://github.com/lmapii/practical-zephyr/actions/workflows/ci.yml/badge.svg)](https://github.com/lmapii/practical-zephyr/actions/workflows/ci.yml)
 
 # Example freestanding applications for the Practical-Zephyr blog series
 
