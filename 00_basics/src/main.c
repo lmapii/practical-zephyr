@@ -4,7 +4,7 @@
 
 #define SLEEP_TIME_MS 100U
 
-void main(void)
+int main(void)
 {
     while (1)
     {

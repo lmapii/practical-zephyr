@@ -10,12 +10,12 @@ In addition, this application demonstrates three overlay files that are picked u
 
 - [`app.overlay`](./app.overlay)
 - [`nrf52840dk_nrf52840.overlay`](./nrf52840dk_nrf52840.overlay)
-- [`boards/nrf52840dk_nrf52840.overlay`](./boards/nrf52840dk_nrf52840.overlay)
+- [`boards/nrf52840dk/nrf52840.overlay`](./boards/nrf52840dk_nrf52840.overlay)
 
 The following command can be used to build the application:
 
 ```bash
-west build --board nrf52840dk_nrf52840 --
+west build --no-sysbuild --board nrf52840dk/nrf52840 --
     -DEXTRA_DTC_OVERLAY_FILE="dts/playground/props-phandles.overlay;dts/playground/props-basics.overlay"
 ```
 

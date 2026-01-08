@@ -1,6 +1,6 @@
 """
 Invoke tasks for the 00_basics demo.
-This file exists mainly for simplyfing the CI configuration.
+This file exists mainly for simplifying the CI configuration.
 """
 
 from invoke import task
@@ -18,7 +18,7 @@ def ci(c):
         "plain CMake demo",
         [
             "rm -rf build",
-            "cmake -B build -DBOARD=nrf52dk_nrf52832",
+            "cmake -B build -DBOARD=nrf52dk/nrf52832",
             "cmake --build build -- -j4",
         ],
     )
@@ -27,7 +27,7 @@ def ci(c):
         "west demo",
         [
             "rm -rf build",
-            "west build --board nrf52840dk_nrf52840",
+            "west build --no-sysbuild --board nrf52840dk/nrf52840",
         ],
     )
     __runall__(
@@ -35,10 +35,10 @@ def ci(c):
         "west build.board demo",
         [
             "west config -l",
-            "west config build.board nrf52840dk_nrf52840",
+            "west config build.board nrf52840dk/nrf52840",
             "rm -rf build",
-            "west build",
-            "west build --pristine",
+            "west build --no-sysbuild ",
+            "west build --no-sysbuild --pristine",
             "west config -d build.board",
         ],
     )

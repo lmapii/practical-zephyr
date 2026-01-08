@@ -72,6 +72,7 @@ jobs:
         run: |
           docker run \
             --rm \
+            --user $(id -u):$(id -g) \
             --platform linux/amd64 \
             --workdir /workspaces/practical-zephyr \
             -v ${{ github.workspace }}:/workspaces/practical-zephyr \

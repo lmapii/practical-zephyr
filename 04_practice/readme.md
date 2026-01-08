@@ -6,7 +6,7 @@ This [Zephyr freestanding application](https://docs.zephyrproject.org/latest/dev
 The application can be built for [Nordic's nRF52840 development kit](https://www.nordicsemi.com/Products/Development-hardware/nrf52840-dk) using the following command:
 
 ```bash
-west build --board nrf52840dk_nrf52840
+west build --no-sysbuild --board nrf52840dk/nrf52840
 ```
 
 The goal of this application is to demonstrate advanced devicetree concepts (refer to the article).

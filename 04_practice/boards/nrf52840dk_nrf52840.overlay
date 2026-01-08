@@ -39,7 +39,6 @@
 &temp {status = "disabled"; };
 &radio {status = "disabled"; };
 &uart1 {status = "disabled"; };
-&gpiote {status = "disabled"; };
 
 // Disabling uart0 is possible too, but this disables the console output.
 // &uart0 {status = "disabled"; };
