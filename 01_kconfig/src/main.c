@@ -8,7 +8,7 @@
 
 #define SLEEP_TIME_MS 100U
 
-void main(void)
+int main(void)
 {
     printk("Message in a bottle.\n");
 

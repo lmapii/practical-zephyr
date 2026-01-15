@@ -1,6 +1,6 @@
 """
 Invoke tasks for the 02_devicetree_semantics demo.
-This file exists mainly for simplyfing the CI configuration.
+This file exists mainly for simplifying the CI configuration.
 """
 
 from invoke import task
@@ -18,7 +18,7 @@ def ci(c):
         "Plain west build",
         [
             "rm -rf build",
-            "west build --board nrf52840dk_nrf52840 -- "
+            "west build --no-sysbuild --board nrf52840dk/nrf52840 -- "
             + '-DDTC_OVERLAY_FILE="'
             + "dts/playground/props-basics.overlay;"
             + 'dts/playground/props-phandles.overlay"',

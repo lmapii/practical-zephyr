@@ -8,7 +8,7 @@ builder-run :
 		--rm \
 		-it \
 		--platform linux/amd64 \
-		--workdir /workspaces/practical-zepyr \
-		--mount type=bind,source="$$(pwd)",target=/workspaces/practical-zepyr \
+		--workdir /workspaces/practical-zephyr \
+		--mount type=bind,source="$$(pwd)",target=/workspaces/practical-zephyr \
 		$(project_name)-builder:latest \
 		/bin/bash

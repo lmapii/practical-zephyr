@@ -1,6 +1,6 @@
 """
 Invoke tasks for the 02_devicetree_basics demo.
-This file exists mainly for simplyfing the CI configuration.
+This file exists mainly for simplifying the CI configuration.
 """
 
 from invoke import task
@@ -18,7 +18,7 @@ def ci(c):
         "Plain west build",
         [
             "rm -rf build",
-            "west build --board nrf52840dk_nrf52840",
+            "west build --no-sysbuild --board nrf52840dk/nrf52840",
         ],
     )
     __runall__(
@@ -26,7 +26,7 @@ def ci(c):
         "west build props-basics",
         [
             "rm -rf build",
-            "west build --board nrf52840dk_nrf52840 -- "
+            "west build --no-sysbuild --board nrf52840dk/nrf52840 -- "
             + "-DEXTRA_DTC_OVERLAY_FILE=dts/playground/props-basics.overlay",
         ],
     )
@@ -35,7 +35,7 @@ def ci(c):
         "west build props-phandles",
         [
             "rm -rf build",
-            "west build --board nrf52840dk_nrf52840 -- "
+            "west build --no-sysbuild --board nrf52840dk/nrf52840 -- "
             + "-DEXTRA_DTC_OVERLAY_FILE=dts/playground/props-phandles.overlay",
         ],
     )
@@ -44,7 +44,7 @@ def ci(c):
         "west build props-basics;props-phandles",
         [
             "rm -rf build",
-            "west build --board nrf52840dk_nrf52840 -- "
+            "west build --no-sysbuild --board nrf52840dk/nrf52840 -- "
             + '-DEXTRA_DTC_OVERLAY_FILE="'
             + "dts/playground/props-phandles.overlay;"
             + 'dts/playground/props-basics.overlay"',

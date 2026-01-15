@@ -1,6 +1,6 @@
 """
 Invoke tasks for the 01_kconfig demo.
-This file exists mainly for simplyfing the CI configuration.
+This file exists mainly for simplifying the CI configuration.
 """
 
 from invoke import task
@@ -18,7 +18,7 @@ def ci(c):
         "Plain west build",
         [
             "rm -rf build",
-            "west build --board nrf52840dk_nrf52840",
+            "west build --no-sysbuild --board nrf52840dk/nrf52840",
         ],
     )
     __runall__(
@@ -26,7 +26,7 @@ def ci(c):
         "west release build",
         [
             "rm -rf build",
-            "west build --board nrf52840dk_nrf52840 -- "
+            "west build --no-sysbuild --board nrf52840dk/nrf52840 -- "
             + "-DCONF_FILE=prj_release.conf",
         ],
     )
@@ -35,7 +35,7 @@ def ci(c):
         "west extra build",
         [
             "rm -rf build",
-            "west build --board nrf52840dk_nrf52840 -- "
+            "west build --no-sysbuild --board nrf52840dk/nrf52840 -- "
             + '-DEXTRA_CONF_FILE="extra0.conf;extra1.conf"',
         ],
     )
@@ -44,7 +44,7 @@ def ci(c):
         "west extra release build",
         [
             "rm -rf build",
-            "west build --board nrf52840dk_nrf52840 -- "
+            "west build --no-sysbuild --board nrf52840dk/nrf52840 -- "
             + '-DCONF_FILE="prj_release.conf" '
             + '-DEXTRA_CONF_FILE="extra1.conf;extra0.conf"',
         ],
@@ -54,8 +54,8 @@ def ci(c):
         "west hardenconfig",
         [
             "rm -rf build",
-            "west build --board nrf52840dk_nrf52840 --pristine -t hardenconfig",
-            "west build --board nrf52840dk_nrf52840 --pristine -t hardenconfig -- "
+            "west build --no-sysbuild --board nrf52840dk/nrf52840 --pristine -t hardenconfig",
+            "west build --no-sysbuild --board nrf52840dk/nrf52840 --pristine -t hardenconfig -- "
             + "-DCONF_FILE=prj_release.conf",
         ],
     )

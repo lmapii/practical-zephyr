@@ -9,7 +9,7 @@ This [Zephyr freestanding application](https://docs.zephyrproject.org/latest/dev
 The following command can be used to build the application for [Nordic's nRF52840 development kit](https://www.nordicsemi.com/Products/Development-hardware/nrf52840-dk):
 
 ```bash
-west build --board nrf52840dk_nrf52840 --
+west build --no-sysbuild --board nrf52840dk/nrf52840 --
     -DEXTRA_DTC_OVERLAY_FILE="dts/playground/props-phandles.overlay;dts/playground/props-basics.overlay"
 ```
 
